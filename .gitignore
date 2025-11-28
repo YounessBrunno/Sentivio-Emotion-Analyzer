@@ -1,0 +1,28 @@
+# Node
+node_modules/
+npm-debug.log
+npm-error.log
+
+# Dist / Build
+dist/
+build/
+.next/
+.out/
+coverage/
+
+# Local env files
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+#typescript
+*.tsbuildinfo
+next-env.d.ts
