@@ -4,6 +4,6 @@ import { EmotionSchema } from "./emotion.schemas";
 export const FrameSchema = z.object({
   id: z.uuid(),
   timestamp: z.number(),
-  frameUrl: z.string().url(),
+  frameUrl: z.url(),
   emotions: z.array(EmotionSchema)
 });
