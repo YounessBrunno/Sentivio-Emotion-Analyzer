@@ -12,7 +12,7 @@ export const SessionsService = {
     const video_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/videos/${filePath}`;
     const status = "uploaded"
     await SessionsRepository.updateSession(video_url, status, session_id)
-    
+
     // Triggering background worker later
 
 
@@ -21,5 +21,26 @@ export const SessionsService = {
       status,
       video_url
     }
+  },
+
+  async getSessionStatus(session_id: string) {
+      const session = await SessionsRepository.getSession(session_id);
+      if (!session) throw new Error("Session not found");
+
+      let progress = 0;
+      switch(session.status) {
+         case "uploading": progress = 20; break;
+         case "uploaded": progress = 50; break;
+         case "processing": progress = session.progress || 80; break;
+         case "done": progress = 100; break;
+         case "failed": progress = session.progress || 0; break;
+      }
+
+      return {
+        session_id,
+        status: session.status,
+        progress,
+        video_url: session.video_url
+      };
   }
 }

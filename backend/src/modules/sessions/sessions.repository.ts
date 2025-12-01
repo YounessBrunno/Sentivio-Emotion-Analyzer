@@ -31,5 +31,14 @@ export const SessionsRepository = {
        );
       return result.rows[0];
     },
+    async getSession(session_id: string) {
+      const result = await db.query(
+        `SELECT status, video_url, created_at, updated_at
+        FROM sessions
+        WHERE id = $1`,
+        [session_id]
+      );
+      return result.rows[0] || null;
+    }
 
 }
