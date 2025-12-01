@@ -6,13 +6,13 @@ export const UploadsController = {
      try {
        const {fileName, fileType, size} = req.body;
 
-       if(size >= 200 * 1024 * 1024) return res.status(413).json({message: "the file is too large"})
+       if (!fileName || !fileType || !size) return res.status(400).json({ error: "Missing required fields" });
 
-       const publicFileUrl = ``
-       const { session, uploadUrl, status } = await UploadsService.uploadUrl(`videos/${fileName}`,);
+       
+       const data = await UploadsService.uploadUrl(fileName, fileType, size);
 
 
-       return res.status(200).json({ sessionId: session.id, uploadUrl, publicFileUrl })
+       return res.status(200).json(data)
       
      } catch (error) {
         next(error)
