@@ -4,6 +4,7 @@ import helmet from "helmet"
 import handleError from "./middlewares/error.middleware";
 // routers
 import uploadRouter from "./api/uploads/uploads.routes"
+import sessionRouter from "./api/uploads/uploads.routes"
 
 // app
 const app = express();
@@ -18,5 +19,6 @@ app.use(handleError);
 
 //routes
 app.use("/api",uploadRouter);
+app.use("/api",sessionRouter);
 
 export default app;
