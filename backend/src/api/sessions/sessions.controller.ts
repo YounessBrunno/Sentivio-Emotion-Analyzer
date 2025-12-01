@@ -29,4 +29,14 @@ export const SessionsController = {
       }
    },
 
+   async getResults(req: Request, res: Response, next: NextFunction) {
+      try {
+         const data = await SessionsService.getResults();
+
+         return res.status(200).json(data)
+      } catch (error) {
+         next(error)
+      }
+   },
+
 }   

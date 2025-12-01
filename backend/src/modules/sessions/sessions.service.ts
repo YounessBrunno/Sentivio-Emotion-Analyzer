@@ -42,5 +42,9 @@ export const SessionsService = {
         progress,
         video_url: session.video_url
       };
+  },
+
+  async getResults() {
+
   }
 }
