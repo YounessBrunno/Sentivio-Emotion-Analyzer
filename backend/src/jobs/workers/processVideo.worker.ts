@@ -3,6 +3,9 @@ import { Worker, Job } from "bullmq";
 export const worker = new Worker("video-processing", async (job: Job) => {
   console.log("Processing:", job.id);
   
+},{
+  concurrency: 2,
+  connection : {}
 });
 
 worker.on("completed", (job: Job) => {

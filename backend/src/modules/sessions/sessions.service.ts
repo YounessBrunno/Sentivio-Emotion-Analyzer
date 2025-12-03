@@ -1,3 +1,4 @@
+import { videoProcessingQueue } from "../../jobs/queues/queue";
 import { UploadsService } from "../uploads/uploads.service"
 import { SessionsRepository } from "./sessions.repository";
 
@@ -13,7 +14,11 @@ export const SessionsService = {
     const status = "uploaded"
     await SessionsRepository.updateSession(video_url, status, session_id)
 
-    // Triggering background worker later
+    
+    await videoProcessingQueue.add("video-processing", {
+     video_url,
+     session_id,
+    });
 
 
     return {
