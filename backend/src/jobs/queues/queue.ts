@@ -1,3 +1,3 @@
 import { Queue } from "bullmq";
 
-export const queue = new Queue("video-processing");
+export const videoProcessingQueue = new Queue("video-processing");
