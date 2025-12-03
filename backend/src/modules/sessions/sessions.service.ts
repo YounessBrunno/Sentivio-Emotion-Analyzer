@@ -1,4 +1,4 @@
-import { videoProcessingQueue } from "../../jobs/queues/queue";
+import { videoProcessingQueue } from "../../jobs/queues/processVideo.queue";
 import { UploadsService } from "../uploads/uploads.service"
 import { SessionsRepository } from "./sessions.repository";
 
