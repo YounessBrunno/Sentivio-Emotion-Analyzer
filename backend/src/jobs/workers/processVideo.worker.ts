@@ -4,19 +4,31 @@ import { SessionsRepository } from "../../modules/sessions/sessions.repository";
 import { VideoService } from "../../modules/videos/videos.service";
 
 export const worker = new Worker("video-processing", async (job: Job) => {
-   const { video_url, session_id } = job.data;
+   const { video_url, filePath, session_id } = job.data;
   
    job.updateProgress(0);
 
    const session = await SessionsRepository.getSession(session_id);
    if(!session) throw new Error("Session not found");
 
-   const localPath = await VideoService.downloadVideo(video_url);
+   job.updateProgress(5);
+
+   const localPath = await VideoService.downloadVideo(filePath);
+   job.updateProgress(15)
+
    const frames = await VideoService.extractFrames(localPath);
-   const analysis = await VideoService.analyzeFrames(frames);
-   const results = await VideoService.generateSummary(analysis);
+   job.updateProgress(40)
+
+   const emotionTimeline = await VideoService.analyzeFrames(session_id, frames);
+   job.updateProgress(75)
+
+   const results = await VideoService.generateSummary(emotionTimeline);
+   job.updateProgress(90);
    
-  
+   await SessionsRepository.updateSessionStatus(session_id, "done")
+
+
+   job.updateProgress(100)
 },{
   concurrency: 2,
   connection : redis

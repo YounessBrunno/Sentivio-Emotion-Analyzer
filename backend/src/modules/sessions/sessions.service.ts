@@ -17,6 +17,7 @@ export const SessionsService = {
     
     await videoProcessingQueue.add("video-processing", {
      video_url,
+     filePath,
      session_id,
     });
 
