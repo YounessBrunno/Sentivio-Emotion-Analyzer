@@ -13,10 +13,10 @@ export const worker = new Worker("video-processing", async (job: Job) => {
 
    job.updateProgress(5);
 
-   const localPath = await VideoService.downloadVideo(filePath);
+   const localPath = await VideoService.downloadVideo(session_id, filePath);
    job.updateProgress(15)
 
-   const frames = await VideoService.extractFrames(localPath);
+   const frames = await VideoService.extractFrames(session_id, localPath);
    job.updateProgress(40)
 
    const emotionTimeline = await VideoService.analyzeFrames(session_id, frames);
