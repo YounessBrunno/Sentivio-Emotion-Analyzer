@@ -111,7 +111,7 @@ export const VideoService = {
          uploadedFrames.push({frameIndex: i + 1, url: publicUrl});
       }
 
-      const BATCH_SIZE = 5;
+      const BATCH_SIZE = 10;
       const emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[] = [];
 
       for (let i = 0; i < uploadedFrames.length; i += BATCH_SIZE) {
@@ -145,6 +145,15 @@ export const VideoService = {
    },
    
    async generateSummary(emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[]) {
-         
+
+      const summary = await hf.textGeneration({
+         model: "Qwen/Qwen2.5-7B-Instruct-1M",
+	      inputs: `generate a summary of this emotionTimeline array: ${emotionTimeline}`,
+      })
+      
+      return {
+         emotionTimeline,
+         summary: summary.generated_text
+      }
    },
 }
