@@ -6,6 +6,8 @@ import { ReadableStream as WebReadableStream } from "stream/web";
 import { pipeline } from "stream/promises";
 import supabase from "../../config/supabase"
 import { promisify } from "util";
+import { hf } from "../../config/inference.huggingFace";
+
 
 export const VideoService = {
    async downloadVideo(session_id: string, filePath: string) {
@@ -76,7 +78,30 @@ export const VideoService = {
       };
    },
    async analyzeFrames(session_id: string, framesDir: string) {
-       const 
+      
+      const { data } = await supabase.storage.from("frames").upload("/frames", framesDir, { contentType:'image/jpeg'})
+
+      const chatCompletion = await hf.chatCompletion({
+         model:"Qwen/Qwen2-VL-2B-Instruct",
+         messages: [
+           {
+            role: "system",
+            content: [
+              { type: "text", text: process.env.ANALYZE_FRAMES_PROMPT },
+            ]
+           },
+           {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: {url: data?.fullPath} },
+            ]
+           },
+         ]
+      })
+      
+      const emotionTimeline = chatCompletion.choices[0].message.content[0].text;
+
+      return emotionTimeline
    },
    
    async generateSummary(emotionTimeline: string) {
