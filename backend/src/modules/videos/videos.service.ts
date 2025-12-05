@@ -76,7 +76,10 @@ export const VideoService = {
       };
    },
    async analyzeFrames(session_id: string, framesDir: string) {
-      
+       const 
    },
-   async generateSummary(emotionTimeline: string) {},
+   
+   async generateSummary(emotionTimeline: string) {
+
+   },
 }

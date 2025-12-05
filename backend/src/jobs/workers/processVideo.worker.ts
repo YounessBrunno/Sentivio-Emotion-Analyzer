@@ -4,7 +4,7 @@ import { SessionsRepository } from "../../modules/sessions/sessions.repository";
 import { VideoService } from "../../modules/videos/videos.service";
 
 export const worker = new Worker("video-processing", async (job: Job) => {
-   const { video_url, filePath, session_id } = job.data;
+   const { filePath, session_id } = job.data;
   
    job.updateProgress(0);
 
