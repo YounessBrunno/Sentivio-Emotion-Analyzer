@@ -79,32 +79,72 @@ export const VideoService = {
    },
    async analyzeFrames(session_id: string, framesDir: string) {
       
-      const { data } = await supabase.storage.from("frames").upload("/frames", framesDir, { contentType:'image/jpeg'})
+      const uploadedFrames: { frameIndex: number; url: string }[] = [];
 
-      const chatCompletion = await hf.chatCompletion({
-         model:"Qwen/Qwen2-VL-2B-Instruct",
-         messages: [
-           {
-            role: "system",
-            content: [
-              { type: "text", text: process.env.ANALYZE_FRAMES_PROMPT },
-            ]
-           },
-           {
-            role: "user",
-            content: [
-              { type: "image_url", image_url: {url: data?.fullPath} },
-            ]
-           },
-         ]
-      })
+      const files = fs.readdirSync(framesDir);
+      if (files.length === 0) {
+         throw new Error("No frame files found in frames directory.");
+      }
+
+      for (let i = 0; i < files.length; i++) {
+         const filename = files[i];
+
+         const fullLocalPath = path.join(framesDir, filename);
+
+         const fileBuffer = fs.readFileSync(fullLocalPath);
+
+         const storagePath = `${session_id}/${filename}`;
+
+         const { data, error } = await supabase.storage.from("frames").upload(storagePath, fileBuffer, {
+            contentType: "image/jpeg",
+            upsert: true, 
+         });
+
+         if (!data) {
+            throw new Error("Upload failed: " + error?.message);
+         }
+
+         const { data: publicData } = supabase.storage.from("frames").getPublicUrl(data.path);
+         const publicUrl = publicData.publicUrl;
+
       
-      const emotionTimeline = chatCompletion.choices[0].message.content[0].text;
+         uploadedFrames.push({frameIndex: i + 1, url: publicUrl});
+      }
 
-      return emotionTimeline
+      const BATCH_SIZE = 5;
+      const emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[] = [];
+
+      for (let i = 0; i < uploadedFrames.length; i += BATCH_SIZE) {
+         const batch = uploadedFrames.slice(i, i + BATCH_SIZE);
+
+         const chatCompletion = await hf.chatCompletion({
+            model: "Qwen/Qwen2-VL-2B-Instruct",
+            messages: [
+            {
+               role: "system",
+               content: [{ type: "text", text: process.env.ANALYZE_FRAMES_PROMPT!},],
+            },
+            {
+               role: "user",
+               content: batch.map((frame) => ({ type: "image_url", image_url: { url: frame.url }})),
+            },
+            ],
+         });
+         
+         const content = chatCompletion.choices[0].message?.content;
+         if (!content) throw new Error("AI returned empty content");
+
+         const batchResult = JSON.parse(content)
+         
+         for (const item of batchResult) {
+            emotionTimeline.push(item);
+         }
+      }
+
+      return emotionTimeline;
    },
    
-   async generateSummary(emotionTimeline: string) {
-
+   async generateSummary(emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[]) {
+         
    },
 }
