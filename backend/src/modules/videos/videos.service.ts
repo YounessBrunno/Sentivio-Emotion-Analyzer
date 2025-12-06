@@ -100,9 +100,8 @@ export const VideoService = {
             upsert: true, 
          });
 
-         if (!data) {
-            throw new Error("Upload failed: " + error?.message);
-         }
+         if (!data)  throw new Error("Upload failed: " + error?.message);
+         
 
          const { data: publicData } = supabase.storage.from("frames").getPublicUrl(data.path);
          const publicUrl = publicData.publicUrl;
@@ -145,12 +144,29 @@ export const VideoService = {
    },
    
    async generateSummary(emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[]) {
+      let formattedTimeline: string[] = [];
+
+      emotionTimeline.map((obj) => {
+          const line = `Frame ${obj.frameIndex}: ${obj.emotion} (confidence: ${obj.confidence})`
+          formattedTimeline.push(line)
+      })
+
+      const formattedTimelineString = formattedTimeline.join("\n");
+
+      const basePrompt = process.env.GENERATE_SUMMARY_PROMPT;
+      if (!basePrompt) throw new Error("Missing GENERATE_SUMMARY_PROMPT");
+
+      const  finalPrompt = basePrompt + 
+                           "\n\nEmotion Timeline:\n<<<\n" + formattedTimelineString + 
+                           "\n>>>\n\nNow write the emotional summary:"
 
       const summary = await hf.textGeneration({
          model: "Qwen/Qwen2.5-7B-Instruct-1M",
-	      inputs: `generate a summary of this emotionTimeline array: ${emotionTimeline}`,
+	      inputs: finalPrompt,
       })
-      
+
+      if(!summary||!summary.generated_text) throw new Error("AI did not generate any text")
+
       return {
          emotionTimeline,
          summary: summary.generated_text
