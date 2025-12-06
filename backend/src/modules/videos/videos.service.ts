@@ -8,6 +8,20 @@ import supabase from "../../config/supabase"
 import { promisify } from "util";
 import { hf } from "../../config/inference.huggingFace";
 
+type RawEmotion = {
+  frameIndex: number;
+  emotion: string;
+  confidence: number;
+};
+
+type EmotionPhase = {
+  phaseIndex: number;
+  dominantEmotion: string;
+  startFrame: number;
+  endFrame: number;
+  avgConfidence: number;
+  stability: "stable" | "volatile";
+};
 
 export const VideoService = {
    async downloadVideo(session_id: string, filePath: string) {
@@ -111,7 +125,7 @@ export const VideoService = {
       }
 
       const BATCH_SIZE = 10;
-      const emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[] = [];
+      const rawEmotionTimeline: RawEmotion[] = [];
 
       for (let i = 0; i < uploadedFrames.length; i += BATCH_SIZE) {
          const batch = uploadedFrames.slice(i, i + BATCH_SIZE);
@@ -136,22 +150,94 @@ export const VideoService = {
          const batchResult = JSON.parse(content)
          
          for (const item of batchResult) {
-            emotionTimeline.push(item);
+            rawEmotionTimeline.push(item);
          }
       }
 
-      return emotionTimeline;
+      return rawEmotionTimeline;
    },
-   async smoothAndAggregate(emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[]) {
 
+   async smoothAndAggregateEmotions(rawEmotionTimeline: RawEmotion[]) {
+      if (rawEmotionTimeline.length === 0) return [];
+
+      //temporal + confidence smoothing
+      const smoothed: RawEmotion[] = rawEmotionTimeline.map((current, index, arr) => {
+         const prev = arr[index - 1];
+         const next = arr[index + 1];
+
+         if (!prev || !next) return current;
+
+         const isWeak = current.confidence < 0.6;
+
+         if (
+            prev.emotion === next.emotion &&
+            current.emotion !== prev.emotion &&
+            isWeak
+         ) {
+            return {
+            ...current,
+            emotion: prev.emotion,
+            confidence: Math.max(prev.confidence, next.confidence),
+            };
+         }
+
+         return current;
+      });
+
+      // Aggregate Into Phases
+      const phases: EmotionPhase[] = [];
+
+      let currentPhaseEmotion = smoothed[0].emotion;
+      let startFrame = smoothed[0].frameIndex;
+      let confidenceSum = smoothed[0].confidence;
+      let frameCount = 1;
+
+      for (let i = 1; i < smoothed.length; i++) {
+         const current = smoothed[i];
+
+         if (current.emotion === currentPhaseEmotion) {
+            confidenceSum += current.confidence;
+            frameCount++;
+         } else {
+            const avgConfidence = confidenceSum / frameCount;
+
+            phases.push({
+            phaseIndex: phases.length + 1,
+            dominantEmotion: currentPhaseEmotion,
+            startFrame,
+            endFrame: smoothed[i - 1].frameIndex,
+            avgConfidence: Number(avgConfidence.toFixed(3)),
+            stability: frameCount >= 5 ? "stable" : "volatile",
+            });
+
+            currentPhaseEmotion = current.emotion;
+            startFrame = current.frameIndex;
+            confidenceSum = current.confidence;
+            frameCount = 1;
+         }
+      }
+
+      const finalAvgConfidence = confidenceSum / frameCount;
+
+      phases.push({
+         phaseIndex: phases.length + 1,
+         dominantEmotion: currentPhaseEmotion,
+         startFrame,
+         endFrame: smoothed[smoothed.length - 1].frameIndex,
+         avgConfidence: Number(finalAvgConfidence.toFixed(3)),
+         stability: frameCount >= 5 ? "stable" : "volatile",
+      });
+
+      return phases;
    },
-   async generateSummary(emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[]) {
-      const smoothAndAgrrEmotions = this.smoothAndAggregate(emotionTimeline);
+
+   async generateSummary(phases: EmotionPhase[]) {
+      
 
       let formattedTimeline: string[] = [];
 
-      emotionTimeline.map((obj) => {
-          const line = `Frame ${obj.frameIndex}: ${obj.emotion} (confidence: ${obj.confidence})`
+      phases.map((obj) => {
+          const line = `Frame ${obj.phaseIndex}: ${obj.dominantEmotion} (confidence: ${obj.} )`
           formattedTimeline.push(line)
       })
 
