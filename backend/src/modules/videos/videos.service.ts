@@ -142,8 +142,12 @@ export const VideoService = {
 
       return emotionTimeline;
    },
-   
+   async smoothAndAggregate(emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[]) {
+
+   },
    async generateSummary(emotionTimeline: { frameIndex: number; emotion: string; confidence: number; }[]) {
+      const smoothAndAgrrEmotions = this.smoothAndAggregate(emotionTimeline);
+
       let formattedTimeline: string[] = [];
 
       emotionTimeline.map((obj) => {
