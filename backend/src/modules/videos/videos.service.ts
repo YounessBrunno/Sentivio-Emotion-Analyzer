@@ -235,7 +235,7 @@ export const VideoService = {
 
       const formattedTimelineString = formattedTimeline.join("\n");
 
-      const basePrompt = process.env.GENERATE_SUMMARY_PROMPT;
+      const basePrompt = process.env.GENERATE_SUMMARY_PROMPT_PREFIX;
       if (!basePrompt) throw new Error("Missing GENERATE_SUMMARY_PROMPT");
 
       const  finalPrompt = basePrompt + 
@@ -243,7 +243,7 @@ export const VideoService = {
                            "\n>>>\n\nNow write the emotional summary:"
 
       const summary = await hf.textGeneration({
-         model: "Qwen/Qwen2.5-7B-Instruct-1M",
+         model: "mistralai/Mistral-7B-Instruct-v0.2",
 	      inputs: finalPrompt,
       })
 
