@@ -169,16 +169,9 @@ export const VideoService = {
 
          const isWeak = current.confidence < 0.6;
 
-         if (
-            prev.emotion === next.emotion &&
-            current.emotion !== prev.emotion &&
-            isWeak
-         ) {
-            return {
-            ...current,
-            emotion: prev.emotion,
-            confidence: Math.max(prev.confidence, next.confidence),
-            };
+         if ( prev.emotion === next.emotion && current.emotion !== prev.emotion && isWeak) {
+           
+           return {...current, emotion: prev.emotion, confidence: Math.max(prev.confidence, next.confidence)};
          }
 
          return current;
@@ -233,11 +226,10 @@ export const VideoService = {
 
    async generateSummary(phases: EmotionPhase[]) {
       
-
       let formattedTimeline: string[] = [];
 
       phases.map((obj) => {
-          const line = `Frame ${obj.phaseIndex}: ${obj.dominantEmotion} (confidence: ${obj.} )`
+          const line = `From frame ${obj.startFrame} to ${obj.endFrame}, the dominant emotion is ${obj.dominantEmotion} with an average confidence of ${obj.avgConfidence.toFixed(2)}. Emotional stability during this phase is ${obj.stability}.`
           formattedTimeline.push(line)
       })
 
@@ -247,7 +239,7 @@ export const VideoService = {
       if (!basePrompt) throw new Error("Missing GENERATE_SUMMARY_PROMPT");
 
       const  finalPrompt = basePrompt + 
-                           "\n\nEmotion Timeline:\n<<<\n" + formattedTimelineString + 
+                           "\n\nEmotion Timeline(phases):\n<<<\n" + formattedTimelineString + 
                            "\n>>>\n\nNow write the emotional summary:"
 
       const summary = await hf.textGeneration({
@@ -258,7 +250,7 @@ export const VideoService = {
       if(!summary||!summary.generated_text) throw new Error("AI did not generate any text")
 
       return {
-         emotionTimeline,
+         emotionTimeline: phases,
          summary: summary.generated_text
       }
    },
