@@ -1,4 +1,5 @@
 import { videoProcessingQueue } from "../../jobs/queues/processVideo.queue";
+import { FramesRepository } from "../frames/frames.repository";
 import { UploadsService } from "../uploads/uploads.service"
 import { SessionsRepository } from "./sessions.repository";
 
@@ -12,8 +13,8 @@ export const SessionsService = {
 
     const video_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/videos/${filePath}`;
     const status = "uploaded"
-    await SessionsRepository.updateSession(video_url, status, session_id)
-
+    await SessionsRepository.updateSession(video_url, status, 0,session_id)
+    
     
     await videoProcessingQueue.add("video-processing", {
      video_url,
