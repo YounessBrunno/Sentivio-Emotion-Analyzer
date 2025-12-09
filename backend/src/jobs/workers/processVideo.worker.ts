@@ -6,7 +6,9 @@ import { SummariesRepository } from "../../modules/summaries/summaries.repositor
 import { EmotionsRepository } from "../../modules/emotions/emotions.repository";
 
 export const worker = new Worker("video-processing", async (job: Job) => {
-   const { filePath, session_id, frame_id } = job.data;
+  try {
+
+   const { filePath, session_id } = job.data;
   
    job.updateProgress(0);
 
@@ -17,18 +19,21 @@ export const worker = new Worker("video-processing", async (job: Job) => {
    await SessionsRepository.updateSessionProgress(5, session_id)
 
    const localPath = await VideoService.downloadVideo(session_id, filePath);
+
    job.updateProgress(15)
    await SessionsRepository.updateSessionProgress(15, session_id)
 
    const { frames } = await VideoService.extractFrames(session_id, localPath);
+
    job.updateProgress(35)
    await SessionsRepository.updateSessionProgress(35, session_id)
 
 
    const rawEmotions = await VideoService.analyzeFrames(session_id, frames);
    for(const emotion of rawEmotions) {
-      await EmotionsRepository.addEmotion(frame_id, emotion.emotion, emotion.confidence)
+      await EmotionsRepository.addEmotion(emotion.frameId, emotion.emotion, emotion.confidence)
    }
+
    job.updateProgress(70)
    await SessionsRepository.updateSessionProgress(70, session_id)
 
@@ -36,29 +41,48 @@ export const worker = new Worker("video-processing", async (job: Job) => {
    for (const phase of emotionPhases) {
       await EmotionsRepository.addEmotionPhases(session_id, phase.phaseIndex, phase.dominantEmotion,phase.startFrame, phase.endFrame, phase.avgConfidence, phase.stability, "v1");
    }
+
    job.updateProgress(80)
    await SessionsRepository.updateSessionProgress(80, session_id)
 
 
    const { summary } = await VideoService.generateSummary(emotionPhases);
    await SummariesRepository.addSummary(summary, session_id)
+
    job.updateProgress(90);
    await SessionsRepository.updateSessionProgress(90, session_id)
 
 
    await SessionsRepository.updateSessionStatus(session_id, "done")
    await SessionsRepository.updateSessionProgress(100, session_id)
-   
+
    job.updateProgress(100);
+
+  } catch(err) {
+    console.error("Error in job:", err);
+    throw err;
+  }
 },{
-  concurrency: 2,
+  concurrency: 1,
+  lockDuration: 120_000,
+  lockRenewTime: 8000,
+  maxStalledCount: 4,
   connection : redis
 });
 
-worker.on("completed", (job: Job) => {
-  console.log(`Job ${job.id} done ✔`);
+worker.on("active", (job: Job) => {
+  console.log(`Job ${job.id} is Active ✔`);
+});
+
+worker.on("stalled", (err, reason) => {
+  console.error(`Job stalled ❌`, err, `reason is: ${reason}`);
 });
 
 worker.on("failed", (err) => {
   console.error(`Job failed ❌`, err);
+});
+
+
+worker.on("completed", (job: Job) => {
+  console.log(`Job ${job.id} done ✔`);
 });

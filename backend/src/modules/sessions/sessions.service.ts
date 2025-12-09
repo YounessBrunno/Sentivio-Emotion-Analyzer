@@ -11,15 +11,15 @@ export const SessionsService = {
 
     await UploadsService.verifyUploadSucceeded("videos", filePath);
 
+  
     const video_url = `${process.env.SUPABASE_URL}/storage/v1/object/public/videos/${filePath}`;
     const status = "uploaded"
     await SessionsRepository.updateSession(video_url, status, 0,session_id)
     
     
-    await videoProcessingQueue.add("video-processing", {
-     video_url,
-     filePath,
-     session_id,
+    await videoProcessingQueue.add("video-processing",{video_url, filePath, session_id,},{
+      attempts: 3,
+      backoff: 5000
     });
 
 

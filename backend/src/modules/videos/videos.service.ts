@@ -10,6 +10,7 @@ import { hf } from "../../config/inference.huggingFace";
 import { FramesRepository } from "../frames/frames.repository";
 
 type RawEmotion = {
+  frameId: string
   frameIndex: number;
   emotion: string;
   confidence: number;
@@ -104,8 +105,8 @@ export const VideoService = {
       };
    },
    
-   async analyzeFrames(session_id: string, frames: {frameIndex: number; timestamp: number; filePath: string;}[]) {
-         const uploadedFrames: { frameIndex: number; timestamp: number; url: string }[] = [];
+   async analyzeFrames(session_id: string, frames: { frameIndex: number; timestamp: number; filePath: string;}[]) {
+         const uploadedFrames: {frameId: string, frameIndex: number; timestamp: number; url: string }[] = [];
 
          if (frames.length === 0) {
             throw new Error("No frames provided for analysis.");
@@ -128,9 +129,10 @@ export const VideoService = {
 
             const publicUrl = publicData.publicUrl;
 
-            await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, publicUrl)
+            const { id } = await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, publicUrl)
 
             uploadedFrames.push({
+               frameId: id,
                frameIndex: frame.frameIndex,
                timestamp: frame.timestamp,
                url: publicUrl,
@@ -166,7 +168,18 @@ export const VideoService = {
             const batchResult = JSON.parse(content);
 
             for (const item of batchResult) {
-               rawEmotionTimeline.push(item);
+               const matchingFrame = batch.find(f => f.frameIndex === item.frame_index);
+               if (!matchingFrame) {
+                  console.error("❌ NO MATCH FOUND FOR:", item);
+                  continue;
+               }
+
+               rawEmotionTimeline.push({
+                  frameId: matchingFrame.frameId,
+                  emotion: item.emotion,
+                  confidence: item.confidence,
+                  frameIndex: item.frame_index
+               });
             }
          }
 

@@ -15,6 +15,7 @@ export const UploadsService = {
       if (size > MAX_FILE_SIZE_BYTES) throw new Error("File too large");
       
    },
+   
    async verifyUploadSucceeded(bucket: string, filePath: string) {
      const fileName = filePath.split("/").pop();
 
@@ -24,6 +25,7 @@ export const UploadsService = {
 
      return data[0];
    },
+
    async generatePresignedUrl( bucket: string, path: string, expiresIn: number) {
 
      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
