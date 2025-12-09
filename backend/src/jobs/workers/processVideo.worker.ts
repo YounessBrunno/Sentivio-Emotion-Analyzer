@@ -2,9 +2,11 @@ import { Worker, Job } from "bullmq";
 import { redis } from "../../config/redis";
 import { SessionsRepository } from "../../modules/sessions/sessions.repository";
 import { VideoService } from "../../modules/videos/videos.service";
+import { SummariesRepository } from "../../modules/summaries/summaries.repository";
+import { EmotionsRepository } from "../../modules/emotions/emotions.repository";
 
 export const worker = new Worker("video-processing", async (job: Job) => {
-   const { filePath, session_id } = job.data;
+   const { filePath, session_id, frame_id } = job.data;
   
    job.updateProgress(0);
 
@@ -16,19 +18,27 @@ export const worker = new Worker("video-processing", async (job: Job) => {
    const localPath = await VideoService.downloadVideo(session_id, filePath);
    job.updateProgress(15)
 
-   const { framesDir, frameCount } = await VideoService.extractFrames(session_id, localPath);
-   job.updateProgress(40)
+   const { frames } = await VideoService.extractFrames(session_id, localPath);
+   job.updateProgress(35)
 
-   const emotionTimeline = await VideoService.analyzeFrames(session_id, framesDir);
-   job.updateProgress(75)
+   const rawEmotions = await VideoService.analyzeFrames(session_id, frames);
+   for(const emotion of rawEmotions) {
+      await EmotionsRepository.addEmotion(frame_id, emotion.emotion, emotion.confidence)
+   }
+   job.updateProgress(70)
 
-   const results = await VideoService.generateSummary(emotionTimeline);
+   const emotionPhases = await VideoService.smoothAndAggregateEmotions(rawEmotions)
+   for (const phase of emotionPhases) {
+      await EmotionsRepository.addEmotionPhases(session_id, phase.phaseIndex, phase.dominantEmotion,phase.startFrame, phase.endFrame, phase.avgConfidence, phase.stability, "v1");
+   }
+   job.updateProgress(80)
+
+   const { summary } = await VideoService.generateSummary(emotionPhases);
+   await SummariesRepository.addSummary(summary, session_id)
    job.updateProgress(90);
-   
+
    await SessionsRepository.updateSessionStatus(session_id, "done")
-
-
-   job.updateProgress(100)
+   job.updateProgress(100);
 },{
   concurrency: 2,
   connection : redis

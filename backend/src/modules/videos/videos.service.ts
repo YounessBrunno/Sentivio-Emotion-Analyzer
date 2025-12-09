@@ -7,6 +7,7 @@ import { pipeline } from "stream/promises";
 import supabase from "../../config/supabase"
 import { promisify } from "util";
 import { hf } from "../../config/inference.huggingFace";
+import { FramesRepository } from "../frames/frames.repository";
 
 type RawEmotion = {
   frameIndex: number;
@@ -52,9 +53,11 @@ export const VideoService = {
       const framesDir = path.resolve(`tmp/frames/${session_id}`);
       await mkdir(framesDir, { recursive: true });
 
+      const fps = 1;
+
       const spawnArgs = [
          "-i", localPath,            
-         "-vf", "fps=1",             
+         "-vf", `fps=${fps}`,             
          "-q:v", "2",                
          "-hide_banner",             
          "-loglevel", "error",       
@@ -86,77 +89,89 @@ export const VideoService = {
 
       console.log(`[extractFrames] Extracted ${files.length} frames for session ${session_id}`);
 
-      
+      const msPerFrame = Math.round(1000 / fps);
+
+      const frames = files.map((filePath, index) => ({
+         frameIndex: index + 1,
+         timestamp: index * msPerFrame,
+         filePath
+      }));
+
       return {
          framesDir,
+         frames,
          frameCount: files.length
       };
    },
    
-   async analyzeFrames(session_id: string, framesDir: string) {
-      
-      const uploadedFrames: { frameIndex: number; url: string }[] = [];
+   async analyzeFrames(session_id: string, frames: {frameIndex: number; timestamp: number; filePath: string;}[]) {
+         const uploadedFrames: { frameIndex: number; timestamp: number; url: string }[] = [];
 
-      const files = fs.readdirSync(framesDir);
-      if (files.length === 0) {
-         throw new Error("No frame files found in frames directory.");
-      }
-
-      for (let i = 0; i < files.length; i++) {
-         const filename = files[i];
-
-         const fullLocalPath = path.join(framesDir, filename);
-
-         const fileBuffer = fs.readFileSync(fullLocalPath);
-
-         const storagePath = `${session_id}/${filename}`;
-
-         const { data, error } = await supabase.storage.from("frames").upload(storagePath, fileBuffer, {
-            contentType: "image/jpeg",
-            upsert: true, 
-         });
-
-         if (!data)  throw new Error("Upload failed: " + error?.message);
-         
-
-         const { data: publicData } = supabase.storage.from("frames").getPublicUrl(data.path);
-         const publicUrl = publicData.publicUrl;
-
-      
-         uploadedFrames.push({frameIndex: i + 1, url: publicUrl});
-      }
-
-      const BATCH_SIZE = 10;
-      const rawEmotionTimeline: RawEmotion[] = [];
-
-      for (let i = 0; i < uploadedFrames.length; i += BATCH_SIZE) {
-         const batch = uploadedFrames.slice(i, i + BATCH_SIZE);
-
-         const chatCompletion = await hf.chatCompletion({
-            model: "Qwen/Qwen2-VL-2B-Instruct",
-            messages: [
-            {
-               role: "system",
-               content: [{ type: "text", text: process.env.ANALYZE_FRAMES_PROMPT!},],
-            },
-            {
-               role: "user",
-               content: batch.map((frame) => ({ type: "image_url", image_url: { url: frame.url }})),
-            },
-            ],
-         });
-         
-         const content = chatCompletion.choices[0].message?.content;
-         if (!content) throw new Error("AI returned empty content");
-
-         const batchResult = JSON.parse(content)
-         
-         for (const item of batchResult) {
-            rawEmotionTimeline.push(item);
+         if (frames.length === 0) {
+            throw new Error("No frames provided for analysis.");
          }
-      }
 
-      return rawEmotionTimeline;
+         for (const frame of frames) {
+            const fileBuffer = fs.readFileSync(frame.filePath);
+
+            const filename = path.basename(frame.filePath); 
+            const storagePath = `${session_id}/${filename}`;
+
+            const { data, error } = await supabase.storage.from("frames").upload(storagePath, fileBuffer, {
+               contentType: "image/jpeg",
+               upsert: true,               
+            });
+
+            if (!data) throw new Error("Upload failed: " + error?.message);
+
+            const { data: publicData } = supabase.storage.from("frames").getPublicUrl(data.path);
+
+            const publicUrl = publicData.publicUrl;
+
+            await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, publicUrl)
+
+            uploadedFrames.push({
+               frameIndex: frame.frameIndex,
+               timestamp: frame.timestamp,
+               url: publicUrl,
+            });
+         }
+
+         const BATCH_SIZE = 10;
+         const rawEmotionTimeline: RawEmotion[] = [];
+
+         for (let i = 0; i < uploadedFrames.length; i += BATCH_SIZE) {
+            const batch = uploadedFrames.slice(i, i + BATCH_SIZE);
+
+            const chatCompletion = await hf.chatCompletion({
+               model: "Qwen/Qwen2-VL-2B-Instruct",
+               messages: [
+               {
+                  role: "system",
+                  content: [{ type: "text", text: process.env.ANALYZE_FRAMES_PROMPT! }],
+               },
+               {
+                  role: "user",
+                  content: batch.map((frame) => ({
+                     type: "image_url",
+                     image_url: { url: frame.url },
+                  })),
+               },
+               ],
+            });
+
+            const content = chatCompletion.choices[0].message?.content;
+            if (!content) throw new Error("AI returned empty content");
+
+            const batchResult = JSON.parse(content);
+
+            for (const item of batchResult) {
+               rawEmotionTimeline.push(item);
+            }
+         }
+
+         return rawEmotionTimeline;
+
    },
 
    async smoothAndAggregateEmotions(rawEmotionTimeline: RawEmotion[]) {
@@ -252,7 +267,6 @@ export const VideoService = {
       if(!summary||!summary.generated_text) throw new Error("AI did not generate any text")
 
       return {
-         emotionTimeline: phases,
          summary: summary.generated_text
       }
    },

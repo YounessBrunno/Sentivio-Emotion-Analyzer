@@ -10,11 +10,11 @@ export const SessionsRepository = {
       return rows[0].exists
     },
 
-    async updateSession(video_url: string, status: string, session_id: string) {
+    async updateSession(video_url: string, status: string, progress:number = 0, session_id: string) {
       const result = await db.query(
         `UPDATE sessions 
-        SET video_url = $1, status = $2, updated_at = NOW() 
-        WHERE id = $3 
+        SET video_url = $1, status = $2, progress = $3 updated_at = NOW() 
+        WHERE id = $4 
         RETURNING *`,
         [video_url, status, session_id]
        );
