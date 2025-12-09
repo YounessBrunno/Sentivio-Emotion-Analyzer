@@ -24,6 +24,7 @@ type EmotionPhase = {
 };
 
 export const VideoService = {
+
    async downloadVideo(session_id: string, filePath: string) {
      const bucket = "videos";
      const remotePath = filePath
@@ -91,6 +92,7 @@ export const VideoService = {
          frameCount: files.length
       };
    },
+   
    async analyzeFrames(session_id: string, framesDir: string) {
       
       const uploadedFrames: { frameIndex: number; url: string }[] = [];
