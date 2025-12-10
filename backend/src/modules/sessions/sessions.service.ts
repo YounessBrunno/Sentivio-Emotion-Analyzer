@@ -55,7 +55,7 @@ export const SessionsService = {
           start_frame: r.start_frame,
           end_frame: r.end_frame,
           average_confidence: r.average_confidence,
-      })),
-  };      
+        })),
+      };      
   }
 }
