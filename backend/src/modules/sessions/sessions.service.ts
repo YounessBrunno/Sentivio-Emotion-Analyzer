@@ -32,26 +32,30 @@ export const SessionsService = {
 
   async getSessionStatus(session_id: string) {
       const session = await SessionsRepository.getSession(session_id);
-      if (!session) throw new Error("Session not found");
-
-      let progress = 0;
-      switch(session.status) {
-         case "uploading": progress = 20; break;
-         case "uploaded": progress = 50; break;
-         case "processing": progress = session.progress || 80; break;
-         case "done": progress = 100; break;
-         case "failed": progress = session.progress || 0; break;
-      }
-
+      if(!session) throw new Error("Session Does not Exists");
+      
       return {
         session_id,
         status: session.status,
-        progress,
+        progress : session.progress,
         video_url: session.video_url
       };
   },
 
-  async getResults() {
+  async getResults(session_id: string) {
+      const results = await SessionsRepository.getResults(session_id)
+      if(!results || results.length === 0) throw new Error("No results Found");
+      
 
+      return {
+        summary: results[0].summary_text,
+        phases: results.map(r => ({
+          phase_index: r.phase_index,
+          dominant_emotion: r.dominant_emotion,
+          start_frame: r.start_frame,
+          end_frame: r.end_frame,
+          average_confidence: r.average_confidence,
+      })),
+  };      
   }
 }

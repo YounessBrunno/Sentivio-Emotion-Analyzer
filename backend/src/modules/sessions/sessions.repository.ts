@@ -52,5 +52,18 @@ export const SessionsRepository = {
       );
       return result.rows[0] || null;
     }
+    ,
+    async getResults(session_id: string) {
+       const results = await db.query(`
+          SELECT S.summary_text, EP.phase_index, EP.dominant_emotion, EP.start_frame, EP.end_frame, EP.average_confidence
+          FROM summaries S JOIN emotion_phases EP 
+          ON S.session_id = EP.session_id 
+          WHERE S.session_id = $1
+          ORDER BY EP.phase_index ASC
+       `,[session_id])
 
+       
+       return results.rows.length === 0 ? null : results.rows;
+
+    },
 }

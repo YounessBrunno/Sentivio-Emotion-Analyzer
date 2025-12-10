@@ -31,9 +31,11 @@ export const SessionsController = {
 
    async getResults(req: Request, res: Response, next: NextFunction) {
       try {
-         const data = await SessionsService.getResults();
+         const { id: session_id } = req.params
+         const data = await SessionsService.getResults(session_id);
 
          return res.status(200).json(data)
+
       } catch (error) {
          next(error)
       }
