@@ -157,6 +157,7 @@ export const VideoService = {
                   content: batch.map((frame) => ({
                      type: "image_url",
                      image_url: { url: frame.url },
+                     frame_index: frame.frameIndex,
                   })),
                },
                ],
