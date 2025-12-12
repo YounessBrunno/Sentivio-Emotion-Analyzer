@@ -52,9 +52,7 @@ describe("UploadsController.uploadUrl", () => {
     await UploadsController.uploadUrl(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      error: "Missing required fields"
-    });
+    expect(res.json).toHaveBeenCalledWith({message: "Missing session_id or filePath"});
   });
 
   it("should call next(error) on service error", async () => {

@@ -22,27 +22,19 @@ describe("UploadsService", () => {
   // validateUploadFile
   describe("validateUploadFile", () => {
     it("throws for invalid extension", () => {
-      expect(() =>
-        UploadsService.validateUploadFile("file.txt", "video/mp4", 1000)
-      ).toThrow("Invalid file extension");
+      expect(() => UploadsService.validateUploadFile("file.txt", "video/mp4", 1000)).toThrow("Invalid file extension");
     });
 
     it("throws for non-video content type", () => {
-      expect(() =>
-        UploadsService.validateUploadFile("video.mp4", "image/png", 1000)
-      ).toThrow("Invalid content type");
+      expect(() => UploadsService.validateUploadFile("video.mp4", "image/png", 1000)).toThrow("Invalid content type");
     });
 
     it("throws for oversized file", () => {
-      expect(() =>
-        UploadsService.validateUploadFile("video.mp4", "video/mp4", 300 * 1024 * 1024)
-      ).toThrow("File too large");
+      expect(() => UploadsService.validateUploadFile("video.mp4", "video/mp4", 300 * 1024 * 1024)).toThrow("File too large");
     });
 
     it("does nothing for valid file", () => {
-      expect(() =>
-        UploadsService.validateUploadFile("video.mp4", "video/mp4", 1000)
-      ).not.toThrow();
+      expect(() => UploadsService.validateUploadFile("video.mp4", "video/mp4", 1000)).not.toThrow();
     });
   });
 
