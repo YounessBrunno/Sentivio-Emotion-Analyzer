@@ -78,8 +78,10 @@ describe("UploadsService", () => {
       const fromInstance = mockFrom();
 
       (fromInstance.list as jest.Mock).mockResolvedValue({
-        data: [{ name: "file.mp4" }]
+        data: [{ name: "file.mp4" }],
+        error: null
       });
+
 
       const result = await UploadsService.verifyUploadSucceeded("videos", "videos/file.mp4");
 
@@ -90,11 +92,12 @@ describe("UploadsService", () => {
       const mockFrom = supabase.storage.from as jest.Mock;
       const fromInstance = mockFrom();
 
-      (fromInstance.list as jest.Mock).mockResolvedValue({ data: [] });
+      (fromInstance.list as jest.Mock).mockResolvedValue({
+        data: [],
+        error: null
+      });
 
-      await expect(
-        UploadsService.verifyUploadSucceeded("videos", "videos/file.mp4")
-      ).rejects.toThrow("File not found in storage.");
+      await expect(UploadsService.verifyUploadSucceeded("videos", "videos/file.mp4")).rejects.toThrow("File not found in storage.");
     });
   });
 
@@ -117,6 +120,7 @@ describe("UploadsService", () => {
         expect(result).toEqual({sessionId: "session123",uploadUrl: "https://presigned-url",filePath: expect.stringContaining("videos/session123-")});
     });
   });
-
+  
+  afterEach(() => { jest.restoreAllMocks()});
 });
 
