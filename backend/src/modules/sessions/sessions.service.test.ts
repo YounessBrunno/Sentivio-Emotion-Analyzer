@@ -3,8 +3,21 @@ import { SessionsRepository } from "./sessions.repository";
 import { UploadsService } from "../uploads/uploads.service";
 import { videoProcessingQueue } from "../../jobs/queues/processVideo.queue";
 
-jest.mock("./sessions.repository");
-jest.mock("../uploads/uploads.service");
+jest.mock("./sessions.repository", () => ({
+  SessionsRepository: {
+    checkSessionExistence: jest.fn(),
+    updateSession: jest.fn(),
+    getSession: jest.fn(),
+    getResults: jest.fn(),
+  },
+}));
+
+jest.mock("../uploads/uploads.service", () => ({
+  UploadsService: {
+    verifyUploadSucceeded: jest.fn(),
+  },
+}));
+
 jest.mock("../../jobs/queues/processVideo.queue", () => ({
   videoProcessingQueue: { add: jest.fn() },
 }));
@@ -18,6 +31,10 @@ describe("SessionsService", () => {
   beforeEach(() => {
     process.env.SUPABASE_URL = SUPABASE_URL;
     jest.clearAllMocks();
+  });
+  
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   // markUploaded()

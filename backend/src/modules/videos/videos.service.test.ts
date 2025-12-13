@@ -1,12 +1,18 @@
 import { VideoService } from "./videos.service";
+import { Readable } from "stream";
+import { Writable } from "stream";
 import { FramesRepository } from "../frames/frames.repository";
 import supabase from "../../config/supabase";
 import { hf } from "../../config/inference.huggingFace";
 import fs from "fs";
 import { spawn } from "child_process";
-import path from "path";
 
 // mocks
+
+(global as any).fetch = jest.fn().mockResolvedValue({
+  ok: true,
+  body: Readable.from(["video data"]),
+});
 
 jest.mock("fs", () => ({
   createWriteStream: jest.fn(),
@@ -14,19 +20,24 @@ jest.mock("fs", () => ({
   mkdir: jest.fn(),
 }));
 
+
 jest.mock("child_process", () => ({
   spawn: jest.fn(),
 }));
 
 jest.mock("../../config/supabase", () => ({
-  storage: {
-    from: jest.fn(() => ({
-      download: jest.fn(),
-      upload: jest.fn(),
-      getPublicUrl: jest.fn(),
-    })),
+  __esModule: true,
+  default: {
+    storage: {
+      from: jest.fn(() => ({
+        download: jest.fn(),
+        upload: jest.fn(),
+        getPublicUrl: jest.fn(),
+      })),
+    },
   },
 }));
+
 
 jest.mock("../../config/inference.huggingFace", () => ({
   hf: {
@@ -36,6 +47,13 @@ jest.mock("../../config/inference.huggingFace", () => ({
 }));
 
 jest.mock("../frames/frames.repository");
+
+jest.mock("glob", () => ({
+  glob: jest.fn(() => [
+    "/tmp/frame_0001.jpg",
+    "/tmp/frame_0002.jpg",
+  ]),
+}));
 
 // test data
 
@@ -51,32 +69,39 @@ beforeEach(() => {
 
 describe("VideoService", () => {
 
-  /* ---------- downloadVideo ---------- */
+  // downloadVideo
+  
   describe("downloadVideo()", () => {
     it("downloads and saves the video locally", async () => {
-      const fakeBlob = {
-        stream: () => new ReadableStream(),
-      };
 
-      (supabase.storage.from as jest.Mock).mockReturnValue({
-        download: jest.fn().mockResolvedValue({ data: fakeBlob }),
-      });
+        jest.spyOn(Readable, "fromWeb").mockImplementation((webStream) => {
+           return Readable.from(["video data"]);
+        });
 
-      (fs.createWriteStream as jest.Mock).mockReturnValue({});
+        const fakeStream = Readable.from(["video data"]);
+        
+        (supabase.storage.from as jest.Mock).mockReturnValue({
+         download: jest.fn().mockResolvedValue({ data: { stream: () => fakeStream } }),
+        });
 
-      const result = await VideoService.downloadVideo(session_id, "videos/test.mp4");
+        
+        (fs.createWriteStream as jest.Mock).mockReturnValue(
+            new Writable({write(chunk, encoding, callback) {callback();}, final(callback) {callback();},})
+        );
 
-      expect(result).toContain(`${session_id}-video.mp4`);
+        const result = await VideoService.downloadVideo(session_id, "videos/test.mp4");
+
+        expect(result).toContain(`${session_id}-video.mp4`);
     });
 
     it("throws if download fails", async () => {
-      (supabase.storage.from as jest.Mock).mockReturnValue({
+        (supabase.storage.from as jest.Mock).mockReturnValue({
         download: jest.fn().mockResolvedValue({ data: null, error: { message: "fail" } }),
-      });
+        });
 
-      await expect(
+        await expect(
         VideoService.downloadVideo(session_id, "videos/test.mp4")
-      ).rejects.toThrow("Failed to download video");
+        ).rejects.toThrow("Failed to download video");
     });
   });
 
@@ -98,11 +123,6 @@ describe("VideoService", () => {
         cb(null);
       });
 
-
-      jest.spyOn(require("fs"), "globSync").mockReturnValue([
-        "/tmp/frame_0001.jpg",
-        "/tmp/frame_0002.jpg",
-      ]);
 
       const result = await VideoService.extractFrames(session_id, "/tmp/video.mp4");
 

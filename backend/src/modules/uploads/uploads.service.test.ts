@@ -42,13 +42,12 @@ describe("UploadsService", () => {
   // generatePresignedUrl
   describe("generatePresignedUrl", () => {
     it("returns signed URL on success", async () => {
-      const mockFrom = supabase.storage.from as jest.Mock;
-      const fromInstance = mockFrom();
 
-      (fromInstance.createSignedUrl as jest.Mock).mockResolvedValue({
-        data: { signedUrl: "https://mock-url" },
-        error: null
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        createSignedUrl: jest.fn().mockResolvedValue({ data: { signedUrl: "https://mock-url" }, error: null }),
+        list: jest.fn().mockResolvedValue({ data: [{ name: "file.mp4" }], error: null }),
       });
+
 
       const url = await UploadsService.generatePresignedUrl("videos", "file.mp4", 300);
 
@@ -56,17 +55,14 @@ describe("UploadsService", () => {
     });
 
     it("throws on error", async () => {
-      const mockFrom = supabase.storage.from as jest.Mock;
-      const fromInstance = mockFrom();
-
-      (fromInstance.createSignedUrl as jest.Mock).mockResolvedValue({
-        data: null,
-        error: { message: "fail" }
+      
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        createSignedUrl: jest.fn().mockResolvedValue({ data: null, error: { message: "fail" } }),
+        list: jest.fn().mockResolvedValue({ data: null, error: { message: "not found" } }),
       });
 
-      await expect(
-        UploadsService.generatePresignedUrl("videos", "file.mp4", 300)
-      ).rejects.toThrow("fail");
+
+      await expect(UploadsService.generatePresignedUrl("videos", "file.mp4", 300)).rejects.toThrow("fail");
     });
   });
 
@@ -74,14 +70,11 @@ describe("UploadsService", () => {
   // verifyUploadSucceeded
   describe("verifyUploadSucceeded", () => {
     it("returns file data", async () => {
-      const mockFrom = supabase.storage.from as jest.Mock;
-      const fromInstance = mockFrom();
 
-      (fromInstance.list as jest.Mock).mockResolvedValue({
-        data: [{ name: "file.mp4" }],
-        error: null
+      (supabase.storage.from as jest.Mock).mockReturnValue({
+        createSignedUrl: jest.fn().mockResolvedValue({ data: { signedUrl: "url" }, error: null }),
+        list: jest.fn().mockResolvedValue({ data: [{ name: "file.mp4" }], error: null }),
       });
-
 
       const result = await UploadsService.verifyUploadSucceeded("videos", "videos/file.mp4");
 
@@ -89,13 +82,13 @@ describe("UploadsService", () => {
     });
 
     it("throws if not found", async () => {
-      const mockFrom = supabase.storage.from as jest.Mock;
-      const fromInstance = mockFrom();
 
-      (fromInstance.list as jest.Mock).mockResolvedValue({
-        data: [],
-        error: null
-      });
+     (supabase.storage.from as jest.Mock).mockReturnValue({
+        list: jest.fn().mockResolvedValue({ data: [], error: null }),
+        createSignedUrl: jest.fn().mockResolvedValue({ data: { signedUrl: "url" }, error: null }),
+     });
+
+
 
       await expect(UploadsService.verifyUploadSucceeded("videos", "videos/file.mp4")).rejects.toThrow("File not found in storage.");
     });

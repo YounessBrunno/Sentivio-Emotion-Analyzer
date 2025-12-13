@@ -1,4 +1,5 @@
-import fs, { globSync } from "fs"
+import fs from "fs"
+import { glob } from "glob";
 import { spawn } from "child_process";
 import path from "path";
 import { Readable } from "stream";
@@ -83,7 +84,7 @@ export const VideoService = {
       }
 
       
-      const files = globSync(path.join(framesDir, "*.jpg"));
+      const files = await glob(path.join(framesDir, "*.jpg"));
       if (files.length === 0) {
          throw new Error("No frames extracted. Video may be corrupted.");
       }

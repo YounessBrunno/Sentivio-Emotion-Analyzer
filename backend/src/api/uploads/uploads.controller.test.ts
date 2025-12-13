@@ -2,7 +2,12 @@
 import { UploadsService } from "../../modules/uploads/uploads.service";
 import { UploadsController } from "./uploads.controller";
 
-jest.mock("../../modules/uploads/uploads.service");
+jest.mock("../../modules/uploads/uploads.service", () => ({
+  UploadsService: {
+    uploadUrl: jest.fn(),
+  },
+}));
+
 
 describe("UploadsController.uploadUrl", () => {
   let req: any, res: any, next: any;
@@ -52,7 +57,7 @@ describe("UploadsController.uploadUrl", () => {
     await UploadsController.uploadUrl(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({message: "Missing session_id or filePath"});
+    expect(res.json).toHaveBeenCalledWith({ error: "Missing required fields"});
   });
 
   it("should call next(error) on service error", async () => {

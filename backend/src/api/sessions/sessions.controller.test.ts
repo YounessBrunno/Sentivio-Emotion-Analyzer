@@ -1,7 +1,14 @@
 import { SessionsController } from "./sessions.controller";
 import { SessionsService } from "../../modules/sessions/sessions.service";
 
-jest.mock("../../modules/sessions/sessions.service");
+jest.mock("../../modules/sessions/sessions.service", () => ({
+  SessionsService: {
+    markUploaded: jest.fn(),
+    getSessionStatus: jest.fn(),
+    getResults: jest.fn(),
+  },
+}));
+
 
 describe("SessionsController", () => {
   let req: any, res: any, next: any;
