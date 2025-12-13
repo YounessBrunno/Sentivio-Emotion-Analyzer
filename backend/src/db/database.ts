@@ -1,10 +1,13 @@
 import { Pool } from "pg";
-import dotenv from "dotenv";
-
-dotenv.config({path: ".env.local"});
 
 
-const db = new Pool({connectionString: process.env.SUPABASE_DB_URL})
+const connectionString = process.env.SUPABASE_DB_URL;
+
+if (!connectionString) {
+  throw new Error("SUPABASE_DB_URL is missing in your .env.local");
+}
+
+const db = new Pool({ connectionString })
 
 
 export default db;

@@ -1,9 +1,7 @@
-import app from "./app"
-import dotenv  from "dotenv";
+import './config/dotenv';
+import app from "./app";
 import db from "./db/database";
 
-
-dotenv.config({path: ".env.local"});
 
 const PORT = process.env.PORT || 5000;
 
@@ -13,10 +11,9 @@ const PORT = process.env.PORT || 5000;
     console.log("Connection pool established with Supabase Database");
 
     app.listen(PORT, () => {
-      console.log(` Server running on port ${PORT}`);
+      console.log(`Server running on port ${PORT}`);
     });
   } catch (err) {
-
     console.error("Startup failed:", err);
   }
 })();
