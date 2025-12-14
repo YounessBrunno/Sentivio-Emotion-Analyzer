@@ -3,7 +3,7 @@ import { UploadsService } from "../uploads/uploads.service"
 import { SessionsRepository } from "./sessions.repository";
 
 export const SessionsService = {
-  async markUploaded(session_id: string,filePath: string) {
+  async markUploaded(session_id: string, filePath: string) {
    
     const sessionExists = await SessionsRepository.checkSessionExistence(session_id);
     if(!sessionExists)  throw new Error("Session Does not Exists");

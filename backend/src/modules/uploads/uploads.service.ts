@@ -17,9 +17,8 @@ export const UploadsService = {
    },
    
    async verifyUploadSucceeded(bucket: string, filePath: string) {
-     const fileName = filePath.split("/").pop();
 
-     const { data }= await supabase.storage.from(bucket).list("", { search: fileName })
+     const { data }= await supabase.storage.from(bucket).list("", { search: filePath })
 
      if (!data || data.length === 0) throw new Error("File not found in storage.");
 
@@ -41,7 +40,7 @@ export const UploadsService = {
      const session = await SessionsRepository.createSession(null, "uploading");
 
      const extension = fileName.split(".").pop();
-     const filePath = `videos/${session.id}-${crypto.randomUUID()}.${extension}`;
+     const filePath = `${session.id}-${crypto.randomUUID()}.${extension}`;
 
      const uploadUrl = await this.generatePresignedUrl("videos", filePath);
      

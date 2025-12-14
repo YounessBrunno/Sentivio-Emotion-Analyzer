@@ -1,8 +1,8 @@
 import  db  from "../../db/database"
 
 export const SessionsRepository = {
-    async createSession(video_url : string | null, status: string) {
-      const result = await db.query("INSERT INTO sessions (video_url, status, created_at) VALUES ($1, $2, NOW()) RETURNING *",[video_url, status])
+    async createSession(video_url : string | null, status: string, progress: number = 0) {
+      const result = await db.query("INSERT INTO sessions (video_url, status, progress, created_at) VALUES ($1, $2, $3,NOW()) RETURNING *",[video_url, status, progress])
       return result.rows[0]
     },
     async checkSessionExistence(session_id: string) {
