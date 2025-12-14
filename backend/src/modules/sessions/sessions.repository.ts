@@ -6,15 +6,15 @@ export const SessionsRepository = {
       return result.rows[0]
     },
     async checkSessionExistence(session_id: string) {
-      const { rows } = await db.query("SELECT EXISTS (SELECT 1 FROM session WHERE id = $1);",[session_id]);
+      const { rows } = await db.query("SELECT EXISTS (SELECT 1 FROM sessions WHERE id = $1);",[session_id]);
       return rows[0].exists
     },
 
     async updateSession(video_url: string, status: string, progress: number = 0, session_id: string) {
       const result = await db.query(
         `UPDATE sessions 
-        SET video_url = $1, status = $2, progress = $3 updated_at = NOW() 
-        WHERE id = $4 
+         SET video_url = $1, status = $2, progress = $3, updated_at = NOW() 
+         WHERE id = $4 
         RETURNING *`,
         [video_url, status, progress, session_id]
        );
@@ -45,7 +45,7 @@ export const SessionsRepository = {
 
     async getSession(session_id: string) {
       const result = await db.query(
-        `SELECT status, video_url, created_at, updated_at
+        `SELECT status, video_url, progress, created_at, updated_at
         FROM sessions
         WHERE id = $1`,
         [session_id]

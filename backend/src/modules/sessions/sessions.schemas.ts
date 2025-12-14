@@ -8,6 +8,6 @@ export const uploadUrlSchema = z.object({
 
 
 export const MarkUploadedSchema = z.object({
-  session_id: z.uuid(),
+  id: z.uuid(),
   filePath: z.string()
 });

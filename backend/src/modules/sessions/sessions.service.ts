@@ -37,7 +37,6 @@ export const SessionsService = {
         session_id,
         status: session.status,
         progress : session.progress,
-        video_url: session.video_url
       };
   },
 
