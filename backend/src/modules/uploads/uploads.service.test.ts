@@ -49,7 +49,7 @@ describe("UploadsService", () => {
       });
 
 
-      const url = await UploadsService.generatePresignedUrl("videos", "file.mp4", 300);
+      const url = await UploadsService.generatePresignedUrl("videos", "file.mp4");
 
       expect(url).toBe("https://mock-url");
     });
@@ -62,7 +62,7 @@ describe("UploadsService", () => {
       });
 
 
-      await expect(UploadsService.generatePresignedUrl("videos", "file.mp4", 300)).rejects.toThrow("fail");
+      await expect(UploadsService.generatePresignedUrl("videos", "file.mp4")).rejects.toThrow("fail");
     });
   });
 

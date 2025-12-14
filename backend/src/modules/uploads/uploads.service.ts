@@ -26,9 +26,9 @@ export const UploadsService = {
      return data[0];
    },
 
-   async generatePresignedUrl( bucket: string, path: string, expiresIn: number) {
+   async generatePresignedUrl( bucket: string, path: string) {
 
-     const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path,{upsert: true});
+     const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path);
 
      if (error) throw new Error(error.message);
 
@@ -43,7 +43,7 @@ export const UploadsService = {
      const extension = fileName.split(".").pop();
      const filePath = `videos/${session.id}-${crypto.randomUUID()}.${extension}`;
 
-     const uploadUrl = await this.generatePresignedUrl("videos", filePath, 300);
+     const uploadUrl = await this.generatePresignedUrl("videos", filePath);
      
      return {
       sessionId: session.id,
