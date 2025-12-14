@@ -4,7 +4,7 @@ import helmet from "helmet"
 import handleError from "./middlewares/error.middleware";
 // routers
 import uploadRouter from "./api/uploads/uploads.routes"
-import sessionRouter from "./api/uploads/uploads.routes"
+import sessionRouter from "./api/sessions/sessions.routes"
 
 // app
 const app = express();
