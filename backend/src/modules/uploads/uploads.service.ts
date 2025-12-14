@@ -28,7 +28,7 @@ export const UploadsService = {
 
    async generatePresignedUrl( bucket: string, path: string, expiresIn: number) {
 
-     const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn);
+     const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path,{upsert: true});
 
      if (error) throw new Error(error.message);
 
