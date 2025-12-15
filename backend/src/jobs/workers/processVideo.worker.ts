@@ -1,3 +1,4 @@
+import '../../config/dotenv';
 import { Worker, Job } from "bullmq";
 import { redis } from "../../config/redis";
 import { SessionsRepository } from "../../modules/sessions/sessions.repository";

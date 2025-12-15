@@ -6,6 +6,8 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec tsx src/server.ts",
+    "worker:dev": "nodemon --watch src/jobs/workers --ext ts --exec tsx src/jobs/workers/processVideo.worker.ts",
+    "worker": "tsx src/jobs/workers/processVideo.worker.ts",
     "build": "tsc --project tsconfig.json",
     "test": "jest",
     "start": "node dist/server.js",
