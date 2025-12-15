@@ -32,8 +32,19 @@ export const VideoService = {
      const bucket = "videos";
      const remotePath = filePath
 
+     const mkdir = promisify(fs.mkdir);
+     const tmpDir = path.resolve("tmp");
+
+     await mkdir(tmpDir, { recursive: true });
+
+
      const LocalFileName = `./${session_id}-video.mp4`;
-     const localPath = path.resolve("tmp", LocalFileName);
+     const localPath = path.join(tmpDir, LocalFileName);
+
+     if (!fs.existsSync(localPath)) throw new Error("Downloaded video file does not exist");
+      
+
+     
 
      const { data, error } = await supabase.storage.from(bucket).download(remotePath)
 
