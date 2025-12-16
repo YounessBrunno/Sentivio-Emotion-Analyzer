@@ -1,5 +1,5 @@
-import fs, { globSync } from "fs"
-import { glob } from "glob";
+import fs from "fs"
+import fg  from "fast-glob";
 import { spawn } from "child_process";
 import path from "path";
 import { Readable } from "stream";
@@ -95,8 +95,9 @@ export const VideoService = {
          throw new Error(`FFmpeg failed with code ${exitCode}. Details:\n${stderr}`);
       }
 
-      
-      const files = globSync(path.join(framesDir, "*.jpg"));
+      await new Promise((r) => setTimeout(r, 50))
+            
+      const files = await fg("*.jpg",{cwd: framesDir,absolute: true});
       if (files.length === 0) throw new Error("No frames extracted. Video may be corrupted.");
       
 
