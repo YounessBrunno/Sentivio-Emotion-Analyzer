@@ -16,7 +16,7 @@ export const SessionsService = {
     await SessionsRepository.updateSession(video_url, status, 0,session_id)
     
     
-    await videoProcessingQueue.add("video-processing",{video_url, filePath, session_id,},{
+    await videoProcessingQueue.add("video-processing",{ filePath, session_id },{
       attempts: 3,
       backoff: 5000
     });

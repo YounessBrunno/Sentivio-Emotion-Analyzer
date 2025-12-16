@@ -1,4 +1,4 @@
-import fs from "fs"
+import fs, { globSync } from "fs"
 import { glob } from "glob";
 import { spawn } from "child_process";
 import path from "path";
@@ -34,19 +34,18 @@ export const VideoService = {
 
      const mkdir = promisify(fs.mkdir);
      const tmpDir = path.resolve("tmp");
-
      await mkdir(tmpDir, { recursive: true });
 
 
-     const LocalFileName = `./${session_id}-video.mp4`;
-     const localPath = path.join(tmpDir, LocalFileName);
+     const localFileName = path.basename(`${session_id}-video.mp4`);
+     const localPath = path.join(tmpDir, localFileName);
 
-     if (!fs.existsSync(localPath)) throw new Error("Downloaded video file does not exist");
-      
+     console.log("DOWNLOAD PARAMS:", {bucket, remotePath: filePath});
 
-     
 
      const { data, error } = await supabase.storage.from(bucket).download(remotePath)
+
+     console.log("DOWNLOAD RESULT:", { hasData: !!data, error });
 
      if(error||!data) throw new Error(`Failed to download video from storage, error: ${error.message}`);
 
@@ -56,6 +55,8 @@ export const VideoService = {
      const stream = fs.createWriteStream(localPath)
 
      await pipeline(nodeStream, stream);
+
+     if (!fs.existsSync(localPath)) throw new Error("Downloaded video file does not exist");
      
      return localPath;
    },
@@ -95,10 +96,9 @@ export const VideoService = {
       }
 
       
-      const files = await glob(path.join(framesDir, "*.jpg"));
-      if (files.length === 0) {
-         throw new Error("No frames extracted. Video may be corrupted.");
-      }
+      const files = globSync(path.join(framesDir, "*.jpg"));
+      if (files.length === 0) throw new Error("No frames extracted. Video may be corrupted.");
+      
 
       console.log(`[extractFrames] Extracted ${files.length} frames for session ${session_id}`);
 
