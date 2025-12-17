@@ -19,12 +19,7 @@ export const worker = new Worker("video-processing", async (job: Job) => {
    job.updateProgress(5);
    await SessionsRepository.updateSessionProgress(5, session_id)
 
-   console.log("⬇️ ABOUT TO DOWNLOAD VIDEO", { session_id, filePath });
-
-
    const localPath = await VideoService.downloadVideo(session_id, filePath);
-
-   console.log("✅ VIDEO DOWNLOADED TO", localPath);
 
    job.updateProgress(15)
    await SessionsRepository.updateSessionProgress(15, session_id)

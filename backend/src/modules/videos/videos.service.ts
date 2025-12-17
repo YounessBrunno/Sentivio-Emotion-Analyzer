@@ -9,6 +9,7 @@ import supabase from "../../config/supabase"
 import { promisify } from "util";
 import { hf } from "../../config/inference.huggingFace";
 import { FramesRepository } from "../frames/frames.repository";
+import { extractJson } from "../../utilities/extractJson";
 
 type RawEmotion = {
   frameId: string
@@ -152,14 +153,14 @@ export const VideoService = {
             });
          }
 
-         const BATCH_SIZE = 10;
+         const BATCH_SIZE = 4;
          const rawEmotionTimeline: RawEmotion[] = [];
 
          for (let i = 0; i < uploadedFrames.length; i += BATCH_SIZE) {
             const batch = uploadedFrames.slice(i, i + BATCH_SIZE);
 
             const chatCompletion = await hf.chatCompletion({
-               model: "Qwen/Qwen2-VL-2B-Instruct",
+               model: "Qwen/Qwen2.5-VL-7B-Instruct",
                messages: [
                {
                   role: "system",
@@ -170,7 +171,6 @@ export const VideoService = {
                   content: batch.map((frame) => ({
                      type: "image_url",
                      image_url: { url: frame.url },
-                     frame_index: frame.frameIndex,
                   })),
                },
                ],
@@ -179,7 +179,8 @@ export const VideoService = {
             const content = chatCompletion.choices[0].message?.content;
             if (!content) throw new Error("AI returned empty content");
 
-            const batchResult = JSON.parse(content);
+            const cleaned = extractJson(content);
+            const batchResult = JSON.parse(cleaned);
 
             for (const item of batchResult) {
                const matchingFrame = batch.find(f => f.frameIndex === item.frame_index);
