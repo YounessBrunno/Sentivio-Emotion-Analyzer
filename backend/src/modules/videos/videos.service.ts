@@ -9,7 +9,7 @@ import supabase from "../../config/supabase"
 import { promisify } from "util";
 import { hf } from "../../config/inference.huggingFace";
 import { FramesRepository } from "../frames/frames.repository";
-import { extractJson } from "../../utilities/extractJson";
+import { parseAiJson } from "../../utilities/parseAiJson";
 
 type RawEmotion = {
   frameId: string
@@ -179,22 +179,28 @@ export const VideoService = {
             const content = chatCompletion.choices[0].message?.content;
             if (!content) throw new Error("AI returned empty content");
 
-            const cleaned = extractJson(content);
-            const batchResult = JSON.parse(cleaned);
+            
+            const batchResult = parseAiJson(content);
+            
+            if (!Array.isArray(batchResult)) {
+              throw new Error("AI returned non-array");
+            }
 
-            for (const item of batchResult) {
-               const matchingFrame = batch.find(f => f.frameIndex === item.frame_index);
-               if (!matchingFrame) {
-                  console.error("❌ NO MATCH FOUND FOR:", item);
-                  continue;
-               }
+            if (batchResult.length !== batch.length) {
+              throw new Error("AI length mismatch");
+            }
 
-               rawEmotionTimeline.push({
-                  frameId: matchingFrame.frameId,
-                  emotion: item.emotion,
-                  confidence: item.confidence,
-                  frameIndex: item.frame_index
-               });
+            
+            for (let j = 0; j < batchResult.length; j++) {
+              const item = batchResult[j];
+              const frame = batch[j];
+
+              rawEmotionTimeline.push({
+                 frameId: frame.frameId,
+                 emotion: item.emotion,
+                 confidence: item.confidence,
+                 frameIndex: frame.frameIndex,
+              });
             }
          }
 
@@ -283,19 +289,27 @@ export const VideoService = {
       const basePrompt = process.env.GENERATE_SUMMARY_PROMPT_PREFIX;
       if (!basePrompt) throw new Error("Missing GENERATE_SUMMARY_PROMPT");
 
-      const  finalPrompt = basePrompt + 
-                           "\n\nEmotion Timeline(phases):\n<<<\n" + formattedTimelineString + 
-                           "\n>>>\n\nNow write the emotional summary:"
+      const finalPrompt = "\n\nEmotion Timeline(phases):\n<<<\n" + formattedTimelineString + "\n>>>\n\nNow write the emotional summary:"
 
-      const summary = await hf.textGeneration({
-         model: "mistralai/Mistral-7B-Instruct-v0.2",
-	      inputs: finalPrompt,
-      })
+     const summary = await hf.chatCompletion({
+      model: "mistralai/Mistral-7B-Instruct-v0.2",
+      messages: [
+         {
+            role: "system",
+            content: [{ type: "text", text: basePrompt}]
+         },
+         {
+            role: "user",
+            content: [{ type: "text", text: finalPrompt}]
+         }
+      ]
+     });
 
-      if(!summary||!summary.generated_text) throw new Error("AI did not generate any text")
+
+     if(!summary||!summary.choices[0].message.content) throw new Error("AI did not generate any text")
 
       return {
-         summary: summary.generated_text
+         summary: summary.choices[0].message.content
       }
    },
 }
