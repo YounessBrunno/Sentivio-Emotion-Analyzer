@@ -186,20 +186,18 @@ export const VideoService = {
               throw new Error("AI returned non-array");
             }
 
-            if (batchResult.length !== batch.length) {
-              throw new Error("AI length mismatch");
-            }
 
+            const minLen = Math.min(batch.length, batchResult.length);
             
-            for (let j = 0; j < batchResult.length; j++) {
+            for (let j = 0; j < minLen; j++) {
               const item = batchResult[j];
               const frame = batch[j];
 
               rawEmotionTimeline.push({
                  frameId: frame.frameId,
+                 frameIndex: frame.frameIndex,
                  emotion: item.emotion,
                  confidence: item.confidence,
-                 frameIndex: frame.frameIndex,
               });
             }
          }
@@ -292,7 +290,7 @@ export const VideoService = {
       const finalPrompt = "\n\nEmotion Timeline(phases):\n<<<\n" + formattedTimelineString + "\n>>>\n\nNow write the emotional summary:"
 
      const summary = await hf.chatCompletion({
-      model: "mistralai/Mistral-7B-Instruct-v0.2",
+      model: "Qwen/Qwen2.5-VL-7B-Instruct",
       messages: [
          {
             role: "system",

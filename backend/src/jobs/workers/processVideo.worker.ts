@@ -48,7 +48,7 @@ export const worker = new Worker("video-processing", async (job: Job) => {
 
 
    const { summary } = await VideoService.generateSummary(emotionPhases);
-   await SummariesRepository.addSummary(summary, session_id)
+   await SummariesRepository.addSummary(session_id, summary)
 
    job.updateProgress(90);
    await SessionsRepository.updateSessionProgress(90, session_id)
