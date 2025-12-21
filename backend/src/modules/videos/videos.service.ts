@@ -120,7 +120,7 @@ export const VideoService = {
    },
    
    async analyzeFrames(session_id: string, frames: { frameIndex: number; timestamp: number; filePath: string;}[]) {
-         const uploadedFrames: {frameId: string, frameIndex: number; timestamp: number; url: string }[] = [];
+         const uploadedFrames: {id: string, frameIndex: number; timestamp: number; url: string }[] = [];
 
          if (frames.length === 0) {
             throw new Error("No frames provided for analysis.");
@@ -146,33 +146,33 @@ export const VideoService = {
             const { id } = await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, publicUrl)
 
             uploadedFrames.push({
-               frameId: id,
+               id,
                frameIndex: frame.frameIndex,
                timestamp: frame.timestamp,
                url: publicUrl,
             });
          }
-
-         const BATCH_SIZE = 4;
          const rawEmotionTimeline: RawEmotion[] = [];
 
-         for (let i = 0; i < uploadedFrames.length; i += BATCH_SIZE) {
-            const batch = uploadedFrames.slice(i, i + BATCH_SIZE);
+         for(const frame of uploadedFrames) {
+
 
             const chatCompletion = await hf.chatCompletion({
                model: "Qwen/Qwen2.5-VL-7B-Instruct",
                messages: [
-               {
+                {
                   role: "system",
-                  content: [{ type: "text", text: process.env.ANALYZE_FRAMES_PROMPT! }],
-               },
-               {
+                  content: [{ type: "text", text: process.env.ANALYZE_EACH_FRAME_PROMPT! }],
+                },
+                {
                   role: "user",
-                  content: batch.map((frame) => ({
+                  content: [
+                    {
                      type: "image_url",
                      image_url: { url: frame.url },
-                  })),
-               },
+                    }
+                  ],
+                },
                ],
             });
 
@@ -180,30 +180,21 @@ export const VideoService = {
             if (!content) throw new Error("AI returned empty content");
 
             
-            const batchResult = parseAiJson(content);
+            const result = parseAiJson(content);
             
-            if (!Array.isArray(batchResult)) {
-              throw new Error("AI returned non-array");
-            }
-
-
-            const minLen = Math.min(batch.length, batchResult.length);
             
-            for (let j = 0; j < minLen; j++) {
-              const item = batchResult[j];
-              const frame = batch[j];
-
-              rawEmotionTimeline.push({
-                 frameId: frame.frameId,
+            
+            rawEmotionTimeline.push({
+                 frameId: frame.id,
                  frameIndex: frame.frameIndex,
-                 emotion: item.emotion,
-                 confidence: item.confidence,
-              });
-            }
+                 emotion: result.emotion,
+                 confidence: result.confidence,
+            });
+           
          }
 
          return rawEmotionTimeline;
-
+      
    },
 
    async smoothAndAggregateEmotions(rawEmotionTimeline: RawEmotion[]) {

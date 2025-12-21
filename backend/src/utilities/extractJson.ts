@@ -1,4 +1,14 @@
 export const extractJson = (text: string): string => {
-  return text.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-}
+  const cleaned = text
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
 
+  const match = cleaned.match(/(\{[\s\S]*?\}|\[[\s\S]*?\])/);
+
+  if (!match) {
+    throw new Error("No JSON found in AI response");
+  }
+
+  return match[1];
+};
