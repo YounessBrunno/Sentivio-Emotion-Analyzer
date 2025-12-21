@@ -120,7 +120,6 @@ export const VideoService = {
    },
    
    async analyzeFrames(session_id: string, frames: { frameIndex: number; timestamp: number; filePath: string;}[]) {
-         const uploadedFrames: {id: string, frameIndex: number; timestamp: number; url: string }[] = [];
 
          if (frames.length === 0) {
             throw new Error("No frames provided for analysis.");
@@ -141,21 +140,11 @@ export const VideoService = {
 
             const { data: publicData } = supabase.storage.from("frames").getPublicUrl(data.path);
 
-            const publicUrl = publicData.publicUrl;
+            const frameUrl = publicData.publicUrl;
 
-            const { id } = await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, publicUrl)
-
-            uploadedFrames.push({
-               id,
-               frameIndex: frame.frameIndex,
-               timestamp: frame.timestamp,
-               url: publicUrl,
-            });
-         }
-         const rawEmotionTimeline: RawEmotion[] = [];
-
-         for(const frame of uploadedFrames) {
-
+            const { id } = await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, frameUrl)
+            
+            const rawEmotionTimeline: RawEmotion[] = [];
 
             const chatCompletion = await hf.chatCompletion({
                model: "Qwen/Qwen2.5-VL-7B-Instruct",
@@ -169,7 +158,7 @@ export const VideoService = {
                   content: [
                     {
                      type: "image_url",
-                     image_url: { url: frame.url },
+                     image_url: { url: frameUrl },
                     }
                   ],
                 },
@@ -179,22 +168,19 @@ export const VideoService = {
             const content = chatCompletion.choices[0].message?.content;
             if (!content) throw new Error("AI returned empty content");
 
-            
             const result = parseAiJson(content);
             
-            
-            
             rawEmotionTimeline.push({
-                 frameId: frame.id,
+                 frameId: id,
                  frameIndex: frame.frameIndex,
                  emotion: result.emotion,
                  confidence: result.confidence,
             });
            
-         }
+         
 
          return rawEmotionTimeline;
-      
+      } 
    },
 
    async smoothAndAggregateEmotions(rawEmotionTimeline: RawEmotion[]) {
