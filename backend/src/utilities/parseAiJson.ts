@@ -29,10 +29,7 @@ export const parseAiJson = (content: unknown): EmotionResult => {
 
   const obj = parsed as any;
 
-  if (
-    typeof obj.emotion !== "string" ||
-    typeof obj.confidence !== "number"
-  ) {
+  if (typeof obj.emotion !== "string" || typeof obj.confidence !== "number") {
     throw new Error("AI response missing emotion or confidence");
   }
 
