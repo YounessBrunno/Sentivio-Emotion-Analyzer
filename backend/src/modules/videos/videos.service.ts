@@ -124,6 +124,8 @@ export const VideoService = {
          if (frames.length === 0) {
             throw new Error("No frames provided for analysis.");
          }
+         
+         const rawEmotionTimeline: RawEmotion[] = [];
 
          for (const frame of frames) {
             const fileBuffer = fs.readFileSync(frame.filePath);
@@ -144,7 +146,6 @@ export const VideoService = {
 
             const { id } = await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, frameUrl)
             
-            const rawEmotionTimeline: RawEmotion[] = [];
 
             const chatCompletion = await hf.chatCompletion({
                model: "Qwen/Qwen2.5-VL-7B-Instruct",
@@ -178,9 +179,8 @@ export const VideoService = {
             });
            
          
-
-         return rawEmotionTimeline;
       } 
+      return rawEmotionTimeline;
    },
 
    async smoothAndAggregateEmotions(rawEmotionTimeline: RawEmotion[]) {
