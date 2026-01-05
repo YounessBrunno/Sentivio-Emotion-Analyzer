@@ -12,7 +12,7 @@ export default function Header() {
                   <Link href="/">
                    <Image src={logo} alt="Sentivio Logo" width={40} height={40} />
                   </Link>
-                  <div className="flex items-center gap-4 font-semibold text-gray-800">
+                  <div className="flex items-center gap-4 font-semibold text-gray-800 font-serif">
                     <Link href="/about">About</Link>
                     <Link href="/blog">Blog</Link>
                   </div>
