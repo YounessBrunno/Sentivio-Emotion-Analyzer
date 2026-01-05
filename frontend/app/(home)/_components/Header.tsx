@@ -7,7 +7,7 @@ import { FingerprintIcon } from "lucide-react";
 export default function Header() {
     return (
         <header>
-            <nav className="flex items-center justify-between max-w-100 mx-auto p-1 border border-gray-200 rounded-full mt-1.5 select-none">
+            <nav className="flex items-center justify-between max-w-100 mx-auto p-1 bg-white border rounded-full mt-1.5 select-none">
                   <Image src={logo} alt="Sentivio Logo" width={40} height={40} />
                   <div className="flex items-center gap-4 font-semibold text-gray-800">
                     <Link href="/about">About</Link>
