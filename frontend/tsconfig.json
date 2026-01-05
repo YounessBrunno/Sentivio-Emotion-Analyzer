@@ -28,7 +28,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": [
-        "lib/*"
+        "shared/lib/*"
       ]
     },
     "allowJs": true,
