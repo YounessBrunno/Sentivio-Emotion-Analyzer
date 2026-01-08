@@ -17,13 +17,14 @@ export default function Hero() {
                    Built for insight. Focused on emotion, never identity.
                 </p>
               </div>
-              <div>
+              <div className="flex flex-col space-y-1">
                 <Button className="p-3 rounded-full">
                    <Link href="/upload" className="flex items-center gap-1">
                      <PlusIcon />
                      Upload File
                    </Link>
                 </Button>
+                <p className="text-[11px] font-space font-medium text-gray-700">200MB Max</p>
               </div>
             </div>
         </section>

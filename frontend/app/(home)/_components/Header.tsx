@@ -16,7 +16,7 @@ export default function Header() {
                     <Link href="/about">About</Link>
                     <Link href="/blog">Blog</Link>
                   </div>
-                  <Button className="py-1 px-1.5  rounded-full">
+                  <Button className="py-1 px-1.5 border-2 border-gray-400 rounded-full">
                     <Link href="/sign-in" className="flex items-center gap-2">
                       Sign In <FingerprintIcon className="w-4 h-4" />
                     </Link>
