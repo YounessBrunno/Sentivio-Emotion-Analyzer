@@ -21,13 +21,12 @@ export function useUploader() {
       headers: (file) => ({
         'Content-Type': file.type,
       }),
+      endpoint: ''
     });
   }
 
   useEffect(() => {
-    return () => {
-      uppyRef.current?.close();
-    };
+    return () => { uppyRef.current?.close()};
   }, []);
 
   return uppyRef.current!;
