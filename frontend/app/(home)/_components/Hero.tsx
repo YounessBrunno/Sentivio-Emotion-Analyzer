@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import logo  from "public/assets/sentivio-logo2.svg"
+import noSignUpImg from "public/assets/no-signup-needed.svg"
 import { Button } from "shared/ui/button";
 import { PlusIcon } from "lucide-react";
 
@@ -18,11 +19,12 @@ export default function Hero() {
                 </p>
               </div>
               <div className="flex flex-col space-y-1">
-                <Button className="p-3 rounded-full">
+                <Button className="relative p-3 rounded-full">
                    <Link href="/upload" className="flex items-center gap-1">
                      <PlusIcon />
                      Upload File
                    </Link>
+                   <Image className="hidden lg:block absolute -left-32 -bottom-10" src={noSignUpImg} alt="no signUp Needed Image" width={300} height={300} />
                 </Button>
                 <p className="text-[11px] font-space font-medium text-gray-700">200MB Max</p>
               </div>
