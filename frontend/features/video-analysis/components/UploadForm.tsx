@@ -20,6 +20,23 @@ export default function UploadForm() {
               </div>
           </div>
           
+          <input
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+
+              uppy.addFile({
+                name: file.name,
+                type: file.type,
+                data: file,
+              });
+
+              uppy.upload();
+            }}
+          />
+
           <div className="flex items-end justify-center text-center">
                  <p className="flex items-center gap-1.5 text-[12px] font-medium">
                     <LockIcon width={12} height={12} />

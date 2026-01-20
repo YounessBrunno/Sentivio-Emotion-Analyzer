@@ -4,18 +4,24 @@ import { useEffect, useRef } from 'react';
 import Uppy from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 
+type UploadMeta = {
+  uploadUrl: string;
+  sessionId: string;
+  filePath: string;
+};
+
 export function useUploader() {
-  const uppyRef = useRef<Uppy | null>(null);
+  const uppyRef = useRef<Uppy<UploadMeta> | null>(null);
 
   if (!uppyRef.current) {
-    const uppy = new Uppy({
+    const uppy = new Uppy<UploadMeta>({
       autoProceed: false,
       restrictions: {
         maxNumberOfFiles: 1,
-        maxFileSize: 200 * 1024 * 1024, // 200MB
+        maxFileSize: 200 * 1024 * 1024, 
       },
     });
-
+    
     uppy.use(XHRUpload, {
       method: 'PUT',
       endpoint: (file) => file.meta.uploadUrl,
@@ -45,24 +51,26 @@ export function useUploader() {
       });
     });
 
-    // 2️⃣ Mark upload completed
+    // Mark upload completed
     uppy.on('upload-success', async (file) => {
-      await fetch('http://localhost:4000/api/upload-complete', {
+      if (!file || Array.isArray(file)) return;
+    
+      const { sessionId, filePath } = file.meta;
+    
+      await fetch('http://localhost:4000/api/uploaded', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: file.meta.sessionId,
-          filePath: file.meta.filePath,
-        }),
+        body: JSON.stringify({ sessionId, filePath }),
       });
     });
+    
 
     uppyRef.current = uppy;
   }
 
   useEffect(() => {
     return () => {
-      uppyRef.current?.close();
+      uppyRef.current?.destroy();
     };
   }, []);
 
