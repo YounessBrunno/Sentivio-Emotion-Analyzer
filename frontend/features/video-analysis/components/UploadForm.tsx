@@ -4,7 +4,7 @@ import Image from "next/image"
 import { Card } from "shared/ui/card"
 import img  from "public/assets/vid-upload.svg"
 import { LockIcon } from "lucide-react"
-import { useUploader } from "@/useUploader";
+import { useUploader } from "../hooks/useUploader";
 import { useRef } from "react"
 
 export default function UploadForm() {
