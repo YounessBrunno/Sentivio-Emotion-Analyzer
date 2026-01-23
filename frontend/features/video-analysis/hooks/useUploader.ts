@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Uppy from '@uppy/core';
+import Uppy, { UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 
 type UploadMeta = {
@@ -18,20 +18,34 @@ export function useUploader() {
       autoProceed: false,
       restrictions: {
         maxNumberOfFiles: 1,
-        maxFileSize: 200 * 1024 * 1024, 
+        maxFileSize: 200 * 1024 * 1024,
       },
     });
-    
+
+    // 🔹 Upload plugin (PUT → Supabase)
     uppy.use(XHRUpload, {
       method: 'PUT',
-      endpoint: (file) => file.meta.uploadUrl,
-      headers: (file) => ({
-        'Content-Type': file.type,
-      }),
+      endpoint: (file) => {
+        if (!file || Array.isArray(file)) {
+          throw new Error('Invalid file');
+        }
+        return file.meta.uploadUrl;
+      },
+      headers: (file) => {
+        if (!file || Array.isArray(file)) return {};
+        return {
+          'Content-Type': file.type,
+        };
+      },
     });
 
-    // 1️⃣ Get presigned URL when file is added
-    uppy.on('file-added', async (file) => {
+    // 🔹 BLOCKING STEP: get presigned URL BEFORE upload
+    uppy.onBeforeUpload = async (files) => {
+      const fileEntries = Object.entries(files);
+      if (fileEntries.length === 0) return false;
+
+      const [, file] = fileEntries[0] as [string, UppyFile<UploadMeta>];
+
       const res = await fetch('http://localhost:4000/api/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -49,21 +63,23 @@ export function useUploader() {
         sessionId,
         filePath,
       });
-    });
 
-    // Mark upload completed
+      return files; // ✅ allow upload to proceed
+    };
+
+    // 🔹 Notify backend after successful PUT
     uppy.on('upload-success', async (file) => {
       if (!file || Array.isArray(file)) return;
-    
-      const { sessionId, filePath } = file.meta;
-    
+
       await fetch('http://localhost:4000/api/uploaded', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, filePath }),
+        body: JSON.stringify({
+          sessionId: file.meta.sessionId,
+          filePath: file.meta.filePath,
+        }),
       });
     });
-    
 
     uppyRef.current = uppy;
   }
