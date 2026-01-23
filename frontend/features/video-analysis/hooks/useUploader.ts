@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import Uppy, { UppyFile } from '@uppy/core';
-import XHRUpload from '@uppy/xhr-upload';
+import { useEffect, useRef } from "react";
+import Uppy from "@uppy/core";
+import AwsS3 from "@uppy/aws-s3";
 
 type UploadMeta = {
   uploadUrl: string;
@@ -18,58 +18,49 @@ export function useUploader() {
       autoProceed: false,
       restrictions: {
         maxNumberOfFiles: 1,
+        allowedFileTypes: ["video/*", "video/mp4", "video/mov", ".mp4", ".mov"
+          
+        ],
         maxFileSize: 200 * 1024 * 1024,
       },
     });
 
-    // 🔹 Upload plugin (PUT → Supabase)
-    uppy.use(XHRUpload, {
-      method: 'PUT',
-      endpoint: (file) => {
-        if (!file || Array.isArray(file)) {
-          throw new Error('Invalid file');
-        }
-        return file.meta.uploadUrl;
-      },
-      headers: (file) => {
-        if (!file || Array.isArray(file)) return {};
+    uppy.use(AwsS3, {
+      shouldUseMultipart: false,
+      async getUploadParameters(file) {
+        const res = await fetch('http://localhost:4000/api/upload-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileType: file.type,
+            size: file.size,
+          }),
+        });
+
+        if (!res.ok) throw new Error('Failed to get upload URL');
+        
+
+        const { uploadUrl, sessionId, filePath } = await res.json();
+
+        uppy.setFileMeta(file.id, {
+          uploadUrl,
+          sessionId,
+          filePath,
+        });
+
         return {
-          'Content-Type': file.type,
+          method: 'PUT',
+          url: uploadUrl,
+          headers: {
+            'Content-Type': file.type,
+          },
         };
       },
     });
 
-    // 🔹 BLOCKING STEP: get presigned URL BEFORE upload
-    uppy.onBeforeUpload = async (files) => {
-      const fileEntries = Object.entries(files);
-      if (fileEntries.length === 0) return false;
-
-      const [, file] = fileEntries[0] as [string, UppyFile<UploadMeta>];
-
-      const res = await fetch('http://localhost:4000/api/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileType: file.type,
-          size: file.size,
-        }),
-      });
-
-      const { uploadUrl, sessionId, filePath } = await res.json();
-
-      uppy.setFileMeta(file.id, {
-        uploadUrl,
-        sessionId,
-        filePath,
-      });
-
-      return files; // ✅ allow upload to proceed
-    };
-
-    // 🔹 Notify backend after successful PUT
     uppy.on('upload-success', async (file) => {
-      if (!file || Array.isArray(file)) return;
+      if (!file) return;
 
       await fetch('http://localhost:4000/api/uploaded', {
         method: 'POST',
@@ -87,6 +78,7 @@ export function useUploader() {
   useEffect(() => {
     return () => {
       uppyRef.current?.destroy();
+      uppyRef.current = null;
     };
   }, []);
 

@@ -5,13 +5,18 @@ import { Card } from "shared/ui/card"
 import img  from "public/assets/vid-upload.svg"
 import { LockIcon } from "lucide-react"
 import { useUploader } from "@/useUploader";
+import { useRef } from "react"
 
 export default function UploadForm() {
     const uppy = useUploader();
+    const inputRef = useRef<HTMLInputElement | null>(null);
+
 
     
     return  (
-       <Card className="flex flex-col items-center h-100 w-75 p-2 border-2 border-dashed border:hover:animate-spin">
+       <Card 
+        onClick={() => inputRef.current?.click()}
+        className="flex flex-col items-center h-100 w-75 p-2 border-2 border-dashed border:hover:animate-spin">
           <div className="flex flex-col flex-1 items-center justify-center gap-2 text-center">
               <Image src={img} width={200} height={200} alt="upload video" className="select-none" />
               <div>
@@ -21,11 +26,15 @@ export default function UploadForm() {
           </div>
           
           <input
+            ref={inputRef}
             type="file"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
+
+              uppy.clear()
+
 
               uppy.addFile({
                 name: file.name,
