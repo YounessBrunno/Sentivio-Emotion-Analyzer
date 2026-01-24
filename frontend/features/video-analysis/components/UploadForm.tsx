@@ -11,12 +11,11 @@ export default function UploadForm() {
     const uppy = useUploader();
     const inputRef = useRef<HTMLInputElement | null>(null);
 
-
-    
     return  (
        <Card 
         onClick={() => inputRef.current?.click()}
-        className="flex flex-col items-center h-100 w-75 p-2 border-2 border-dashed border:hover:animate-spin">
+        className="flex flex-col items-center h-100 w-75 p-2 border-2 border-dashed border:hover:animate-spin"
+       >
           <div className="flex flex-col flex-1 items-center justify-center gap-2 text-center">
               <Image src={img} width={200} height={200} alt="upload video" className="select-none" />
               <div>
@@ -28,21 +27,19 @@ export default function UploadForm() {
           <input
             ref={inputRef}
             type="file"
+            accept="video/*, .mp4, .mov"
             className="hidden"
-            onChange={(e) => {
+            onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-
-              
-
-
+ 
               uppy.addFile({
                 name: file.name,
                 type: file.type,
                 data: file,
               });
 
-              uppy.upload();
+              e.target.value = '';
             }}
           />
 

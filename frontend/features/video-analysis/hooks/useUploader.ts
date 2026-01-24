@@ -24,7 +24,7 @@ export function useUploader() {
     });
 
     uppy.on('file-added', async (file) => {
-      if (!file.meta.uploadUrl) {
+      try {
         const res = await fetch('http://localhost:4000/api/upload-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -36,9 +36,7 @@ export function useUploader() {
         });
 
         if (!res.ok) {
-          uppy.removeFile(file.id);
-          uppy.emit('upload-error', file, new Error('Failed to get upload URL'));
-          return;
+          throw new Error('Failed to get upload URL');
         }
 
         const { uploadUrl, sessionId, filePath } = await res.json();
@@ -48,33 +46,34 @@ export function useUploader() {
           sessionId,
           filePath,
         });
+
+        setTimeout(() => uppy.upload(), 150);
+      } catch (error) {
+        console.error('Error getting upload URL:', error);
+        uppy.removeFile(file.id);
       }
     });
 
     uppy.use(XHRUpload, {
       bundle: false,
-      method: 'put',
-      endpoint: (file): string => {
+      method: 'PUT', 
+      endpoint: (file) => {
         const singleFile = Array.isArray(file) ? file[0] : file;
-        return (singleFile?.meta?.uploadUrl as string) || '';
+        return singleFile?.meta?.uploadUrl as string || '';
       },
-      fieldName: 'file',
       headers: (file) => {
         const singleFile = Array.isArray(file) ? file[0] : file;
-        return {'Content-Type': singleFile?.type || 'application/octet-stream',};
-      },
-      getResponseData(response) {
-        const singleFile = Array.isArray(response) ? response[0] : response;
-        const uploadUrl = singleFile?.meta?.uploadUrl || '';
-        
         return {
-          url: uploadUrl,
+          'Content-Type': singleFile?.type || 'video/mp4',
         };
       },
     });
 
     uppy.on('upload-success', async (file) => {
-      if (!file) return;
+      if (!file?.meta?.sessionId) {
+        console.error('Upload success but sessionId is missing');
+        return;
+      }
 
       await fetch(`http://localhost:4000/sessions/${file.meta.sessionId}/uploaded`, {
         method: 'POST',
