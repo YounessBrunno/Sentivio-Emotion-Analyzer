@@ -80,6 +80,7 @@ export function useUploader() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filePath: file.meta.filePath }),
       });
+      
     });
 
     uppyRef.current = uppy;
