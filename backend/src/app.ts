@@ -10,7 +10,11 @@ import sessionRouter from "./api/sessions/sessions.routes"
 const app = express();
 
 // middlewares
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:3000', 
+    credentials: true, 
+    methods: ['GET', 'POST', 'PUT'], 
+}));
 app.use(helmet());
 app.use(express.json());
 

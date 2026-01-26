@@ -75,7 +75,7 @@ export function useUploader() {
         return;
       }
 
-      await fetch(`http://localhost:4000/sessions/${file.meta.sessionId}/uploaded`, {
+      await fetch(`http://localhost:4000/api/sessions/${file.meta.sessionId}/uploaded`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filePath: file.meta.filePath }),
