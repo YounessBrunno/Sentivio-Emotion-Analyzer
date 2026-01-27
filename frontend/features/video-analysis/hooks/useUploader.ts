@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Uppy from "@uppy/core";
-import XHRUpload from "@uppy/xhr-upload";
+import AwsS3 from "@uppy/aws-s3";
 
 type UploadMeta = {
   uploadUrl: string;
@@ -47,6 +47,7 @@ export function useUploader() {
           filePath,
         });
 
+        // Auto-upload après avoir les métadonnées
         setTimeout(() => uppy.upload(), 150);
       } catch (error) {
         console.error('Error getting upload URL:', error);
@@ -54,33 +55,48 @@ export function useUploader() {
       }
     });
 
-    uppy.use(XHRUpload, {
-      bundle: false,
-      method: 'PUT', 
-      endpoint: (file) => {
-        const singleFile = Array.isArray(file) ? file[0] : file;
-        return singleFile?.meta?.uploadUrl as string || '';
-      },
-      headers: (file) => {
-        const singleFile = Array.isArray(file) ? file[0] : file;
+    
+    uppy.use(AwsS3, {
+      shouldUseMultipart: false,
+      async getUploadParameters(file) {
         return {
-          'Content-Type': singleFile?.type || 'video/mp4',
+          method: 'PUT',
+          url: file.meta.uploadUrl as string,
+          headers: {
+            'Content-Type': file.type || 'video/mp4',
+          },
         };
       },
     });
 
-    uppy.on('upload-success', async (file) => {
+    // ✅ Utilise 'complete' au lieu de 'upload-success'
+    uppy.on('complete', async (result) => {
+      if ((result.failed?.length ?? 0) > 0) {
+        console.error('Upload failed:', result.failed);
+        return;
+      }
+      
+      const file = result.successful?.[0];
       if (!file?.meta?.sessionId) {
-        console.error('Upload success but sessionId is missing');
+        console.error('Upload complete but sessionId is missing');
         return;
       }
 
-      await fetch(`http://localhost:4000/api/sessions/${file.meta.sessionId}/uploaded`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath: file.meta.filePath }),
-      });
-      
+      try {
+        const res = await fetch(`http://localhost:4000/api/sessions/${file.meta.sessionId}/uploaded`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath: file.meta.filePath }),
+        });
+
+        if (!res.ok) {
+          console.error('Failed to notify backend:', await res.text());
+        } else {
+          console.log('✅ Backend notified successfully');
+        }
+      } catch (error) {
+        console.error('Error notifying backend:', error);
+      }
     });
 
     uppyRef.current = uppy;
