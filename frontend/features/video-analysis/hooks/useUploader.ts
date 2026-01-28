@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Uppy from "@uppy/core";
-import AwsS3 from "@uppy/aws-s3";
+import XHRUpload from "@uppy/xhr-upload";
 
 type UploadMeta = {
   uploadUrl: string;
@@ -35,9 +35,7 @@ export function useUploader() {
           }),
         });
 
-        if (!res.ok) {
-          throw new Error('Failed to get upload URL');
-        }
+        if (!res.ok) throw new Error('Failed to get upload URL');
 
         const { uploadUrl, sessionId, filePath } = await res.json();
 
@@ -47,7 +45,6 @@ export function useUploader() {
           filePath,
         });
 
-        // Auto-upload après avoir les métadonnées
         setTimeout(() => uppy.upload(), 150);
       } catch (error) {
         console.error('Error getting upload URL:', error);
@@ -55,21 +52,22 @@ export function useUploader() {
       }
     });
 
-    
-    uppy.use(AwsS3, {
-      shouldUseMultipart: false,
-      async getUploadParameters(file) {
+    uppy.use(XHRUpload, {
+      bundle: false,
+      method: 'PUT',
+      formData: false, 
+      endpoint: (file) => {
+        const singleFile = Array.isArray(file) ? file[0] : file;
+        return singleFile?.meta?.uploadUrl as string || '';
+      },
+      headers: (file) => {
+        const singleFile = Array.isArray(file) ? file[0] : file;
         return {
-          method: 'PUT',
-          url: file.meta.uploadUrl as string,
-          headers: {
-            'Content-Type': file.type || 'video/mp4',
-          },
+          'Content-Type': singleFile?.type || 'video/mp4',
         };
       },
     });
 
-    // ✅ Utilise 'complete' au lieu de 'upload-success'
     uppy.on('complete', async (result) => {
       if ((result.failed?.length ?? 0) > 0) {
         console.error('Upload failed:', result.failed);
@@ -91,8 +89,6 @@ export function useUploader() {
 
         if (!res.ok) {
           console.error('Failed to notify backend:', await res.text());
-        } else {
-          console.log('✅ Backend notified successfully');
         }
       } catch (error) {
         console.error('Error notifying backend:', error);
