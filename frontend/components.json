@@ -17,6 +17,6 @@
    "ui": "shared/ui", 
    "lib": "@/lib",
    "hooks": "@/hooks"
-},
+  },
   "registries": {}
 }
