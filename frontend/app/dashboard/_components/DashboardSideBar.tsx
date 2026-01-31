@@ -1,5 +1,7 @@
 export default function DashboardSideBar() {
   return (
-    <div>DashboardSideBar</div>
+    <nav>
+      DashboardSideBar
+    </nav>
   )
 }
