@@ -1,8 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import logo from "public/assets/sentivio-logo3.svg";
-import { Button } from "shared/ui/button";
-import { FingerprintIcon } from "lucide-react";
+import { LoginButton } from "shared/ui/LoginButton";
 
 export default function Header() {
     return (
@@ -15,11 +14,7 @@ export default function Header() {
                     <Link href="/about">About</Link>
                     <Link href="/blog">Blog</Link>
                   </div>
-                  <Button className="py-1 px-1.5 border-2 rounded-full">
-                    <Link href="/sign-in" className="flex items-center gap-2">
-                      Sign In <FingerprintIcon className="w-4 h-4" />
-                    </Link>
-                  </Button>
+                  <LoginButton />
             </nav>
         </header>
     )
