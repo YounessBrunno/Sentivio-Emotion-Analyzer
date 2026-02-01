@@ -1,7 +1,7 @@
 
 export default function DashboardTopBar() {
   return (
-    <header>
+    <header className="fixed top-0 w-full">
       DashboardTopBar
     </header>
   )

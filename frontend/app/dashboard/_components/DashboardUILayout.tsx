@@ -6,7 +6,7 @@ export default function DashboardUILayout({children}: Readonly<{children: React.
     <div className="flex">
       <DashboardTopBar />
       <DashboardSideBar />
-      <main className="">
+      <main className="grid">
         {children}
       </main>
     </div>
