@@ -3,12 +3,12 @@ import DashboardTopBar from "./DashboardTopBar";
 
 export default function DashboardUILayout({children}: Readonly<{children: React.ReactNode;}>) {
    return (
-    <div>
+    <>
       <DashboardTopBar />
       <DashboardSideBar />
       <main className="flex items-center justify-center h-screen">
         {children}
       </main>
-    </div>
+    </>
    )
 }
