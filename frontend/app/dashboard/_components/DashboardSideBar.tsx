@@ -7,7 +7,7 @@ export default function DashboardSideBar() {
     <aside className="fixed top-0 left-0 flex flex-col items-center justify-between gap-2 w-13 py-2 pb-3 h-screen border-r border-gray-200">
       <Image src={logo} alt="Sentivio Logo" width={38} height={38} />   
       <nav>
-        <SettingsIcon className="w-5 h-5 text-gray-500 font-semibold" />
+        <SettingsIcon strokeWidth={1.6} className="w-5 h-5 text-gray-500 font-semibold" />
       </nav>
     </aside>
   )
