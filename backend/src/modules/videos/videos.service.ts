@@ -340,7 +340,7 @@ export const VideoService = {
       const finalPrompt = "\n\nEmotion Timeline(phases):\n<<<\n" + formattedTimelineString + "\n>>>\n\nNow write the emotional summary:"
 
      const summary = await hf.chatCompletion({
-      model: "Qwen/Qwen2.5-VL-7B-Instruct",
+      model: "Qwen/Qwen2.5-7B-Instruct",
       messages: [
          {
             role: "system",
