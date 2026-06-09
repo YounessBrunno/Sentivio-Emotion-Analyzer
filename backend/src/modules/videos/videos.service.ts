@@ -7,7 +7,8 @@ import { ReadableStream as WebReadableStream } from "stream/web";
 import { pipeline } from "stream/promises";
 import supabase from "../../config/supabase"
 import { promisify } from "util";
-import { hf } from "../../config/inference.huggingFace";
+import { gemini } from "../../config/gemini";
+import { hf }from "../../config/inference.huggingFace";
 import { FramesRepository } from "../frames/frames.repository";
 import { parseAiJson } from "../../utilities/parseAiJson";
 
@@ -119,69 +120,141 @@ export const VideoService = {
       };
    },
    
-   async analyzeFrames(session_id: string, frames: { frameIndex: number; timestamp: number; filePath: string;}[]) {
+   
+   async analyzeFrames(session_id: string, frames: { frameIndex: number; timestamp: number; filePath: string }[]) {
 
-         if (frames.length === 0) {
-            throw new Error("No frames provided for analysis.");
-         }
-         
-         const rawEmotionTimeline: RawEmotion[] = [];
+      if (frames.length === 0) {
+         throw new Error("No frames provided for analysis.");
+      }
 
-         for (const frame of frames) {
+      const rawEmotionTimeline: RawEmotion[] = [];
+
+      const existingFrames = await FramesRepository.getFramesBySessionId(session_id);
+      const existingIndexes = new Set(existingFrames.map(f => f.frame_index));
+
+      for (const frame of frames) {
+         try {
+
+            // called once before the loop, useless on attempt 1, but on attempt 2+ it returns already-inserted frames
+
+            if (existingIndexes.has(frame.frameIndex)) {
+
+               console.log(`Frame ${frame.frameIndex} already analyzed, skipping Gemini processing.`);
+               continue;
+            }
+            // Read Frame File into Buffer
+            
             const fileBuffer = fs.readFileSync(frame.filePath);
 
-            const filename = path.basename(frame.filePath); 
+            const filename = path.basename(frame.filePath);
             const storagePath = `${session_id}/${filename}`;
+      
+            // Upload to Supabase Storage      
 
-            const { data, error } = await supabase.storage.from("frames").upload(storagePath, fileBuffer, {
+            const { data, error } = await supabase.storage
+            .from("frames")
+            .upload(storagePath, fileBuffer, {
                contentType: "image/jpeg",
-               upsert: true,               
+               upsert: true,
             });
 
-            if (!data) throw new Error("Upload failed: " + error?.message);
-
-            const { data: publicData } = supabase.storage.from("frames").getPublicUrl(data.path);
+            if (error || !data) throw new Error(`Upload failed: ${error?.message || "Unknown upload error"}`);
+            
+            // Get Public URL for Uploaded Frame
+            
+            const { data: publicData } = supabase.storage
+            .from("frames")
+            .getPublicUrl(data.path);
 
             const frameUrl = publicData.publicUrl;
 
-            const { id } = await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, frameUrl)
-            
+            console.log("FRAME URL:");
+            console.log(frameUrl);
 
-            const chatCompletion = await hf.chatCompletion({
-               model: "Qwen/Qwen2.5-VL-7B-Instruct",
-               messages: [
-                {
-                  role: "system",
-                  content: [{ type: "text", text: process.env.ANALYZE_EACH_FRAME_PROMPT! }],
-                },
-                {
+            // Store frame metadata in DB and get frame ID for emotion timeline            
+
+            const { id } = await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, frameUrl);
+
+            
+            // Emotion Analysis with Gemini
+
+            console.log("SENDING TO GEMINI...");
+
+            // Read file as base64 directly from disk (fileBuffer is above)
+
+            const base64Image = fileBuffer.toString("base64");
+
+            const response = await gemini.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [
+               {
                   role: "user",
-                  content: [
-                    {
-                     type: "image_url",
-                     image_url: { url: frameUrl },
-                    }
+                  parts: [
+                  {
+                     text: process.env.ANALYZE_EACH_FRAME_PROMPT!,
+                  },
+                  {
+                     inlineData: {
+                        mimeType: "image/jpeg",
+                        data: base64Image,
+                     },
+                  },
+                  {
+                     text: "Analyze this image and return JSON only.",
+                  },
                   ],
-                },
-               ],
+               },
+            ],
+            config: {
+               responseMimeType: "application/json", // this forces JSON output, no markdown fences
+            },
             });
 
-            const content = chatCompletion.choices[0].message?.content;
-            if (!content) throw new Error("AI returned empty content");
+            console.log("GEMINI SUCCESS RESPONSE:");
+            console.dir(response, { depth: null });
 
-            const result = parseAiJson(content);
-            
-            rawEmotionTimeline.push({
-                 frameId: id,
-                 frameIndex: frame.frameIndex,
-                 emotion: result.emotion,
-                 confidence: result.confidence,
-            });
+            // Extract text content from Gemini response (should be JSON string)
            
-         
-      } 
+            const content = response.text;
+
+            console.log("GEMINI CONTENT:");
+            console.dir(content, { depth: null });
+
+            if (!content) throw new Error("AI returned empty content");
+            
+            // Parse Model response ensuring it's valid JSON with expected structure, extract emotion and confidence.
+            
+            const result = parseAiJson(content);
+
+            console.log("PARSED RESULT:");
+            console.dir(result, { depth: null });
+
+            rawEmotionTimeline.push({
+             frameId: id,
+             frameIndex: frame.frameIndex,
+             emotion: result.emotion,
+             confidence: result.confidence,
+            });
+
+            
+         } catch (err: any) {
+
+            console.log("\n================ GEMINI ERROR ================\n");
+
+            console.error("ERROR MESSAGE:");
+            console.error(err?.message);
+
+            console.error("\nFULL ERROR:");
+            console.dir(err, { depth: null });
+
+            console.log("\n=============================================\n");
+
+            throw err;
+         }
+      }
+
       return rawEmotionTimeline;
-   },
+      },
 
    async smoothAndAggregateEmotions(rawEmotionTimeline: RawEmotion[]) {
       if (rawEmotionTimeline.length === 0) return [];
