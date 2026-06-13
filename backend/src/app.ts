@@ -18,11 +18,12 @@ app.use(cors({
 app.use(helmet());
 app.use(express.json());
 
-//Global Error Handling
-app.use(handleError);
 
 //routes
 app.use("/api",uploadRouter);
 app.use("/api",sessionRouter);
+
+//Global Error Handling
+app.use(handleError);
 
 export default app;

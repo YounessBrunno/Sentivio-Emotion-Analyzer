@@ -34,7 +34,6 @@ export const worker = new Worker("video-processing", async (job: Job) => {
    console.log("RAW EMOTIONS COUNT:", rawEmotions.length);
    console.log("RAW EMOTIONS FRAME IDS:", rawEmotions.map(e => e.frameId));
 
-   
    for(const emotion of rawEmotions) {
       await EmotionsRepository.addEmotion(emotion.frameId, emotion.emotion, emotion.confidence)
    }
