@@ -1,6 +1,3 @@
-
-export default function loading() {
-  return (
-    <div>loading</div>
-  )
+export default function Loading() {
+  return <p className="text-sm text-gray-500">Loading analysis…</p>;
 }

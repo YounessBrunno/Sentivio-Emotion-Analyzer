@@ -1,13 +1,11 @@
-import EmotionsChart from "features/video-analysis/components/EmotionsGraph";
-import SessionInfo from "features/video-analysis/components/SessionInfo";
-import SummaryCard from "features/video-analysis/components/SummaryCard";
+import { Suspense } from "react";
+import DashboardContent from "./DashboardContent";
+import Loading from "./loading";
 
-export default function page() {
+export default function DashboardPage() {
   return (
-    <>
-     <EmotionsChart />
-     <SummaryCard />
-     <SessionInfo />
-    </>
-  )
+    <Suspense fallback={<Loading />}>
+      <DashboardContent />
+    </Suspense>
+  );
 }

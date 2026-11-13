@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Uppy from "@uppy/core";
 import XHRUpload from "@uppy/xhr-upload";
 
@@ -11,6 +12,7 @@ type UploadMeta = {
 };
 
 export function useUploader() {
+  const router = useRouter();
   const uppyRef = useRef<Uppy<UploadMeta> | null>(null);
 
   if (!uppyRef.current) {
@@ -89,7 +91,10 @@ export function useUploader() {
 
         if (!res.ok) {
           console.error('Failed to notify backend:', await res.text());
+          return;
         }
+
+        router.push(`/dashboard?session=${file.meta.sessionId}`);
       } catch (error) {
         console.error('Error notifying backend:', error);
       }

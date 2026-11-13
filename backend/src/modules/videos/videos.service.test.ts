@@ -3,9 +3,10 @@ import { Readable } from "stream";
 import { Writable } from "stream";
 import { FramesRepository } from "../frames/frames.repository";
 import supabase from "../../config/supabase";
-import { hf } from "../../config/inference.huggingFace";
+import { groq } from "../../config/groq";
 import fs from "fs";
 import { spawn } from "child_process";
+import path from "path";
 
 // mocks
 
@@ -18,6 +19,10 @@ jest.mock("fs", () => ({
   createWriteStream: jest.fn(),
   readFileSync: jest.fn(),
   mkdir: jest.fn(),
+  promises: {
+    rm: jest.fn().mockResolvedValue(undefined),
+    mkdir: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 
@@ -39,21 +44,22 @@ jest.mock("../../config/supabase", () => ({
 }));
 
 
-jest.mock("../../config/inference.huggingFace", () => ({
-  hf: {
-    chatCompletion: jest.fn(),
-    textGeneration: jest.fn(),
+jest.mock("../../config/groq", () => ({
+  groq: {
+    chat: {
+      completions: {
+        create: jest.fn(),
+      },
+    },
   },
 }));
 
 jest.mock("../frames/frames.repository");
 
-jest.mock("glob", () => ({
-  glob: jest.fn(() => [
+jest.mock("fast-glob", () => jest.fn(() => [
     "/tmp/frame_0001.jpg",
     "/tmp/frame_0002.jpg",
-  ]),
-}));
+ ]));
 
 // test data
 
@@ -117,16 +123,14 @@ describe("VideoService", () => {
       (spawn as jest.Mock).mockReturnValue(mockProcess);
 
 
-      jest.spyOn(fs, "mkdir").mockImplementation((...args: any[]) => {
-        const cb = args[args.length - 1];
-        cb(null);
-      });
-
-
       const result = await VideoService.extractFrames(session_id, "/tmp/video.mp4");
 
       expect(result.frameCount).toBe(2);
       expect(result.frames.length).toBe(2);
+      expect(fs.promises.rm).toHaveBeenCalledWith(
+        expect.stringContaining(`frames${path.sep}${session_id}`),
+        { recursive: true, force: true }
+      );
     });
 
     it("throws if ffmpeg fails", async () => {
@@ -163,18 +167,6 @@ describe("VideoService", () => {
 
       (FramesRepository.addFrame as jest.Mock).mockResolvedValue({ id: "frame-id" });
 
-      (hf.chatCompletion as jest.Mock).mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify([
-                { frame_index: 1, emotion: "happy", confidence: 0.9 },
-              ]),
-            },
-          },
-        ],
-      });
-
       const result = await VideoService.analyzeFrames(session_id, frames);
 
       expect(result[0].emotion).toBe("happy");
@@ -207,8 +199,8 @@ describe("VideoService", () => {
   // generateSummary
   describe("generateSummary()", () => {
     it("generates summary from phases", async () => {
-      (hf.textGeneration as jest.Mock).mockResolvedValue({
-        generated_text: "Final emotional summary",
+      (groq.chat.completions.create as jest.Mock).mockResolvedValue({
+        choices: [{ message: { content: "Final emotional summary" } }],
       });
 
       const result = await VideoService.generateSummary([
@@ -223,13 +215,27 @@ describe("VideoService", () => {
       ]);
 
       expect(result.summary).toBe("Final emotional summary");
+      expect(groq.chat.completions.create).toHaveBeenCalledWith(
+        expect.objectContaining({ model: "openai/gpt-oss-20b" })
+      );
     });
 
     it("throws if AI returns nothing", async () => {
-      (hf.textGeneration as jest.Mock).mockResolvedValue(null);
+      (groq.chat.completions.create as jest.Mock).mockResolvedValue({
+        choices: [{ message: { content: null } }],
+      });
 
       await expect(
-        VideoService.generateSummary([])
+        VideoService.generateSummary([
+          {
+            phaseIndex: 1,
+            dominantEmotion: "happy",
+            startFrame: 1,
+            endFrame: 10,
+            avgConfidence: 0.85,
+            stability: "stable",
+          },
+        ])
       ).rejects.toThrow("AI did not generate any text");
     });
   });

@@ -17,7 +17,7 @@ export const SessionsService = {
     
     
     await videoProcessingQueue.add("video-processing",{ filePath, session_id },{
-      attempts: 3,
+      attempts: 5,
       backoff: 5000
     });
 

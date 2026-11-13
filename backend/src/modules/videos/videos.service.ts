@@ -8,8 +8,9 @@ import { pipeline } from "stream/promises";
 import supabase from "../../config/supabase"
 import { promisify } from "util";
 import { gemini } from "../../config/gemini";
-import { hf }from "../../config/inference.huggingFace";
+import { groq } from "../../config/groq";
 import { FramesRepository } from "../frames/frames.repository";
+import { EmotionsRepository } from "../emotions/emotions.repository";
 import { parseAiJson } from "../../utilities/parseAiJson";
 
 type RawEmotion = {
@@ -65,11 +66,12 @@ export const VideoService = {
 
    async extractFrames(session_id: string, localPath: string) {
       
-      const mkdir = promisify(fs.mkdir);
       const framesDir = path.resolve(`tmp/frames/${session_id}`);
-      await mkdir(framesDir, { recursive: true });
+   
+      await fs.promises.rm(framesDir, { recursive: true, force: true });
+      await fs.promises.mkdir(framesDir, { recursive: true });
 
-      const fps = 1;
+      const fps = 0.5; // this means 1 frame every 2 seconds.
 
       const spawnArgs = [
          "-i", localPath,            
@@ -119,6 +121,19 @@ export const VideoService = {
          frameCount: files.length
       };
    },
+
+   // Removes only local artifacts. The original video and
+   // uploaded frame images in Supabase are intentionally not affected ;).
+   async cleanupSessionTempFiles(session_id: string) {
+      const tmpDir = path.resolve("tmp");
+
+      await fs.promises.rm(tmpDir, {
+         recursive: true,
+         force: true,
+         maxRetries: 3,
+         retryDelay: 100,
+      });
+   },
    
    
    async analyzeFrames(session_id: string, frames: { frameIndex: number; timestamp: number; filePath: string }[]) {
@@ -129,51 +144,64 @@ export const VideoService = {
 
       const rawEmotionTimeline: RawEmotion[] = [];
 
-      const existingFrames = await FramesRepository.getFramesBySessionId(session_id);
-      const existingIndexes = new Set(existingFrames.map(f => f.frame_index));
+      const [existingFrames, persistedEmotions] = await Promise.all([
+         FramesRepository.getFramesBySessionId(session_id),
+         EmotionsRepository.getEmotionTimeline(session_id),
+      ]);
+      const existingFramesByIndex = new Map(existingFrames.map(frame => [frame.frame_index, frame]));
+      const persistedEmotionsByFrameIndex = new Map(
+         persistedEmotions.map(emotion => [emotion.frameIndex, emotion])
+      );
 
       for (const frame of frames) {
          try {
 
-            // called once before the loop, useless on attempt 1, but on attempt 2+ it returns already-inserted frames
-
-            if (existingIndexes.has(frame.frameIndex)) {
-
-               console.log(`Frame ${frame.frameIndex} already analyzed, skipping Gemini processing.`);
+            const persistedEmotion = persistedEmotionsByFrameIndex.get(frame.frameIndex);
+            if (persistedEmotion) {
+               console.log(`Frame ${frame.frameIndex} already has a saved emotion result, reusing it.`);
+               rawEmotionTimeline.push(persistedEmotion);
                continue;
             }
-            // Read Frame File into Buffer
-            
-            const fileBuffer = fs.readFileSync(frame.filePath);
 
-            const filename = path.basename(frame.filePath);
-            const storagePath = `${session_id}/${filename}`;
+            const existingFrame = existingFramesByIndex.get(frame.frameIndex);
+            let frameId = existingFrame?.id as string | undefined;
+
+            // Only frames without metadata need to be uploaded and inserted again.
+            // A frame row alone is not treated as an analysed frame.
+            let fileBuffer: Buffer | undefined;
+            if (!frameId) {
+               fileBuffer = fs.readFileSync(frame.filePath);
+
+               const filename = path.basename(frame.filePath);
+               const storagePath = `${session_id}/${filename}`;
       
             // Upload to Supabase Storage      
 
-            const { data, error } = await supabase.storage
-            .from("frames")
-            .upload(storagePath, fileBuffer, {
+               const { data, error } = await supabase.storage
+               .from("frames")
+               .upload(storagePath, fileBuffer, {
                contentType: "image/jpeg",
                upsert: true,
-            });
+               });
 
-            if (error || !data) throw new Error(`Upload failed: ${error?.message || "Unknown upload error"}`);
+               if (error || !data) throw new Error(`Upload failed: ${error?.message || "Unknown upload error"}`);
             
             // Get Public URL for Uploaded Frame
             
-            const { data: publicData } = supabase.storage
-            .from("frames")
-            .getPublicUrl(data.path);
+               const { data: publicData } = supabase.storage
+               .from("frames")
+               .getPublicUrl(data.path);
 
-            const frameUrl = publicData.publicUrl;
+               const frameUrl = publicData.publicUrl;
 
-            console.log("FRAME URL:");
-            console.log(frameUrl);
+               console.log("FRAME URL:");
+               console.log(frameUrl);
 
             // Store frame metadata in DB and get frame ID for emotion timeline            
 
-            const { id } = await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, frameUrl);
+               const { id } = await FramesRepository.addFrame(session_id, frame.frameIndex, frame.timestamp, frameUrl);
+               frameId = id;
+            }
 
             
             // Emotion Analysis with Gemini
@@ -182,10 +210,11 @@ export const VideoService = {
 
             // Read file as base64 directly from disk (fileBuffer is above)
 
-            const base64Image = fileBuffer.toString("base64");
+            const imageBuffer = fileBuffer ?? fs.readFileSync(frame.filePath);
+            const base64Image = imageBuffer.toString("base64");
 
             const response = await gemini.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3.1-flash-lite",
             contents: [
                {
                   role: "user",
@@ -229,11 +258,19 @@ export const VideoService = {
             console.log("PARSED RESULT:");
             console.dir(result, { depth: null });
 
+            if (!frameId) throw new Error(`Frame ${frame.frameIndex} has no database ID`);
+
+            const savedEmotion = await EmotionsRepository.addEmotionIfMissing(
+               frameId,
+               result.emotion,
+               result.confidence
+            );
+
             rawEmotionTimeline.push({
-             frameId: id,
+             frameId,
              frameIndex: frame.frameIndex,
-             emotion: result.emotion,
-             confidence: result.confidence,
+             emotion: savedEmotion.emotion_name,
+             confidence: Number(savedEmotion.emotion_score),
             });
 
             
@@ -254,7 +291,7 @@ export const VideoService = {
       }
 
       return rawEmotionTimeline;
-      },
+   },
 
    async smoothAndAggregateEmotions(rawEmotionTimeline: RawEmotion[]) {
       if (rawEmotionTimeline.length === 0) return [];
@@ -324,40 +361,65 @@ export const VideoService = {
    },
 
    async generateSummary(phases: EmotionPhase[]) {
-      
-      let formattedTimeline: string[] = [];
+      if (phases.length === 0) {
+         throw new Error("Cannot generate a summary without emotion phases");
+      }
 
-      phases.map((obj) => {
-          const line = `From frame ${obj.startFrame} to ${obj.endFrame}, the dominant emotion is ${obj.dominantEmotion} with an average confidence of ${obj.avgConfidence.toFixed(2)}. Emotional stability during this phase is ${obj.stability}.`
-          formattedTimeline.push(line)
-      })
+      const formattedTimeline: string[] = [];
+
+      phases.forEach((obj) => {
+         const line = `From frame ${obj.startFrame} to ${obj.endFrame}, the dominant emotion is ${obj.dominantEmotion} with an average confidence of ${obj.avgConfidence.toFixed(2)}. Emotional stability during this phase is ${obj.stability}.`;
+
+         formattedTimeline.push(line);
+      });
 
       const formattedTimelineString = formattedTimeline.join("\n");
 
       const basePrompt = process.env.GENERATE_SUMMARY_PROMPT_PREFIX;
       if (!basePrompt) throw new Error("Missing GENERATE_SUMMARY_PROMPT");
 
-      const finalPrompt = "\n\nEmotion Timeline(phases):\n<<<\n" + formattedTimelineString + "\n>>>\n\nNow write the emotional summary:"
+      const finalPrompt =
+         basePrompt +
+         "\n\nEmotion Timeline (phases):\n<<<\n" +
+         formattedTimelineString +
+         "\n>>>\n\nWrite a concise summary of the observed facial expressions:";
 
-     const summary = await hf.chatCompletion({
-      model: "Qwen/Qwen2.5-7B-Instruct",
-      messages: [
-         {
-            role: "system",
-            content: [{ type: "text", text: basePrompt}]
-         },
-         {
-            role: "user",
-            content: [{ type: "text", text: finalPrompt}]
+      try {
+         const result = await groq.chat.completions.create({
+            model: "openai/gpt-oss-20b",
+            reasoning_effort: "low",
+            max_completion_tokens: 512,
+            include_reasoning: false,
+            messages: [
+               {
+                  role: "system",
+                  content: "You generate accurate, neutral summaries of facial-expression analysis.",
+               },
+               {
+                  role: "user",
+                  content: finalPrompt,
+               },
+            ],
+            max_tokens: 180,
+            temperature: 0.2,
+         });
+
+         const summary = result.choices?.[0]?.message?.content?.trim();
+         if (!summary) {
+            throw new Error("AI did not generate any text");
          }
-      ]
-     });
 
+         return {
+            summary,
+         };
 
-     if(!summary||!summary.choices[0].message.content) throw new Error("AI did not generate any text")
+      } catch (error: any) {
+         console.error(
+            "Groq summary generation error:",
+            JSON.stringify(error.error ?? error.message, null, 2)
+         );
 
-      return {
-         summary: summary.choices[0].message.content
+         throw error;
       }
    },
 }
